@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pip the Notchbot</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Pip is a tiny robot that lives in your MacBook's notch. It DJs your music, keeps your timers, checks the weather and makes faces. Free for macOS 14 or later.">
+<meta property="og:title" content="Pip the Notchbot">
+<meta property="og:description" content="A tiny robot that lives in your MacBook's notch. Free for macOS 14 or later.">
+<meta name="theme-color" content="#0f1118">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='12' width='56' height='38' rx='14' fill='%23030305'/%3E%3Crect x='18' y='21' width='10' height='20' rx='5' fill='%2372f0d6'/%3E%3Crect x='36' y='21' width='10' height='20' rx='5' fill='%2372f0d6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a night-desk scene. One big laptop whose notch is a live Pip, a grid of try-it feature cards under it, then a download band with the install steps. One deliberate dark look; mint is Pip's glow. */
+:root{
+  --bg:#0f1118; --panel:#171a24; --line:#262a38; --well:#11131b; --key:#1b1e2a; --gear:#363b52;
+  --fg:#e9ebf3; --muted:#9097ad; --dim:rgba(233,235,243,.55); --faint:rgba(233,235,243,.42); --wash:rgba(255,255,255,.1);
+  --led:#72f0d6; --led-dim:#2c6e62; --led-ink:#062a23; --bot-bg:#10241f; --bot-fg:#c9fbef;
+  --pink:#ff8fb3; --blue:#8fb8ff; --ember:#ff8a5c; --gold:#ffe08a; --cloud:#c3c8d6; --notch:#030305;
+  --f-display:"Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --f-mac:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+  color-scheme:dark;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 var(--f-body);-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 44px}
+button{font-family:inherit;color:inherit}
+a{color:var(--led)}
+:focus-visible{outline:2px solid var(--led);outline-offset:2px}
+.wrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:30px}
+.ic{width:1em;height:1em;fill:currentColor;flex:none;display:block}
+
+/* ===== Header ===== */
+header{display:flex;flex-direction:column;gap:12px}
+.titlerow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+h1{font:800 clamp(34px,5.4vw,56px)/1 var(--f-display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1 span{color:var(--led)}
+.tag{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--led);border:1px solid var(--led-dim);border-radius:99px;padding:3px 10px;white-space:nowrap}
+.sub{color:var(--muted);margin:0;max-width:62ch;font-size:16.5px;text-wrap:pretty}
+.cta{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin-top:4px}
+.btn{display:inline-flex;align-items:center;gap:8px;font:700 15px var(--f-body);color:var(--led-ink);background:var(--led);border:0;border-radius:12px;padding:10px 18px;text-decoration:none;cursor:pointer}
+.btn:hover{filter:brightness(1.07)}
+.hint{font:12px var(--f-mono);color:var(--muted);letter-spacing:.02em}
+
+/* ===== Laptop scene ===== */
+.laptop{width:100%;max-width:900px;margin:0 auto}
+.screen{position:relative;container-type:inline-size;--nh:clamp(18px,2.6cqw,26px);--strip:max(11px,calc(var(--nh) * .5));
+  aspect-ratio:16/10;max-width:100%;border-radius:14px 14px 4px 4px;border:9px solid #1d1f27;border-bottom-width:12px;overflow:hidden;user-select:none;-webkit-user-select:none;
+  background:
+   radial-gradient(120% 70% at 75% 110%,#ff9a62 0%,#c0567a 30%,transparent 62%),
+   radial-gradient(90% 60% at 10% 100%,#3e2b6b 0%,transparent 70%),
+   linear-gradient(180deg,#151a3a 0%,#2b2457 55%,#6b3f72 100%)}
+@media (max-width:600px){.screen{aspect-ratio:1/1.2}}
+.screen input,.msgs{user-select:text;-webkit-user-select:text}
+.hills{position:absolute;inset:auto 0 0 0;height:38%;background:
+  radial-gradient(70% 90% at 25% 100%,#1b1634 60%,transparent 61%),
+  radial-gradient(80% 100% at 80% 100%,#120f26 60%,transparent 61%)}
+.star{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.6}
+.base{height:14px;margin:0 -3%;background:linear-gradient(#2a2d38,#15161c);border-radius:0 0 18px 18px;position:relative}
+.base::after{content:"";position:absolute;left:50%;top:0;transform:translateX(-50%);width:18%;height:6px;background:#0c0d11;border-radius:0 0 8px 8px}
+.scenecap{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px;margin-top:14px;font:12px var(--f-mono);color:var(--muted);text-align:center}
+.scenecap b{color:var(--led);font-weight:500}
+
+/* fake macOS menu bar */
+.menubar{position:absolute;inset:0 0 auto 0;height:var(--nh);background:rgba(10,10,20,.35);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  display:flex;justify-content:space-between;align-items:center;padding:0 10px 0 12px;font:500 clamp(9px,1.45cqw,12.5px) var(--f-mac);color:#f3f3f8;z-index:1}
+.menubar .l,.menubar .r{display:flex;align-items:center;gap:clamp(7px,1.6cqw,16px);white-space:nowrap}
+.menubar .r{font-variant-numeric:tabular-nums}
+.menubar .r .ic{width:1.25em;height:1.25em}
+.mbbtn{display:grid;place-items:center;background:transparent;border:0;border-radius:4px;padding:1px 4px;cursor:pointer;color:#f3f3f8;height:calc(var(--nh) - 4px)}
+.mbbtn .ic{width:1.45em;height:1.45em}
+.mbbtn[aria-expanded="true"],.mbbtn:hover{background:rgba(255,255,255,.18)}
+@container (max-width:520px){.menubar .l span:nth-of-type(n+3){display:none}}
+@container (max-width:460px){.menubar .wifi,.menubar #spk,.menubar .wkd{display:none}}
+@container (max-width:380px){.menubar .l span{display:none}}
+
+/* Pip's menu bar menu */
+.mbmenu{position:absolute;top:calc(var(--nh) + 3px);right:8px;z-index:12;width:min(220px,calc(100% - 16px));max-height:calc(100% - var(--nh) - 10px);overflow-y:auto;
+  background:rgba(38,39,48,.9);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:5px;
+  box-shadow:0 12px 30px rgba(0,0,0,.45);font:13px var(--f-mac);color:#f1f2f6;scrollbar-width:thin}
+.mbmenu button.mi{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;background:transparent;border:0;border-radius:5px;padding:4px 9px;cursor:pointer;font:inherit;color:inherit}
+.mbmenu button.mi:hover,.mbmenu button.mi:focus-visible{background:rgba(114,240,214,.22);outline:none}
+.mbmenu .chev{transition:transform .2s;opacity:.7}
+.mbmenu [aria-expanded="true"] .chev{transform:rotate(90deg)}
+.mbmenu hr{border:0;border-top:1px solid rgba(255,255,255,.12);margin:4px 6px}
+.moodgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:3px 4px 6px}
+.moodgrid button{background:rgba(255,255,255,.06);border:0;border-radius:5px;padding:3px 0;font:11.5px var(--f-mac);color:inherit;cursor:pointer}
+.moodgrid button:hover,.moodgrid button:focus-visible{background:rgba(114,240,214,.25);outline:none}
+
+/* ===== The notch IS Pip's body ===== */
+.notch{position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;
+  --nw:clamp(96px,19%,170px);--fh:62px;--wings:96px;
+  width:var(--nw);height:calc(var(--nh) + var(--strip));background:var(--notch);
+  border-radius:0 0 12px 12px;cursor:pointer;overflow:hidden;
+  transition:width .45s cubic-bezier(.3,1.35,.5,1),height .45s cubic-bezier(.3,1.35,.5,1),border-radius .35s,box-shadow .3s}
+.notch.live{width:calc(var(--nw) + var(--wings))}
+.notch.peek{width:clamp(140px,26%,230px);height:calc(var(--nh) + clamp(46px,9cqw,64px));border-radius:0 0 24px 24px;box-shadow:0 8px 30px -8px rgba(114,240,214,.35)}
+.notch.open{width:min(380px,94%);height:min(calc(var(--nh) + var(--fh) + 330px),94%);border-radius:0 0 24px 24px;cursor:default;box-shadow:0 14px 40px -10px rgba(0,0,0,.7),0 0 0 1px #15161d}
+.notch.open.compact{height:min(var(--ph,300px),94%)}
+@container (max-width:460px){.notch{--fh:48px;--wings:76px}.wing.l{left:9px}.wing.r{right:9px}}
+
+.top{position:relative;height:var(--nh);flex:none}
+/* face rig: face > groove (music bop) > head (mood body language) > eyes (cursor tracking) */
+.notch{--eye:var(--led);--halo:rgba(114,240,214,.6)}
+.face{position:relative;flex:none;width:100%;height:var(--strip);display:flex;justify-content:center;align-items:center;
+  background:transparent;border:0;padding:0;margin:0;cursor:pointer;transition:height .4s;border-radius:0 0 12px 12px}
+.face:focus-visible{outline-offset:-3px}
+.notch.peek .face{height:calc(100% - var(--nh))}
+.notch.open .face{height:var(--fh)}
+.groove,.head{display:flex;align-items:center;justify-content:center;position:relative}
+.head{transition:transform .3s}
+.eyes{position:relative;display:flex;gap:3px;transition:transform .14s linear}
+.eye{display:block;width:9px;height:9px;overflow:visible;opacity:.8;filter:drop-shadow(0 0 2px var(--halo));transition:transform .07s ease-in,width .3s,height .3s,opacity .3s}
+.notch.peek .eye,.notch.open .eye{width:30px;height:30px;opacity:1;filter:drop-shadow(0 0 7px var(--halo))}
+.notch.peek .eyes,.notch.open .eyes{gap:10px}
+@container (max-width:460px){.notch.peek .eye,.notch.open .eye{width:24px;height:24px}.notch.peek .eyes,.notch.open .eyes{gap:8px}}
+.s-lit{stop-color:var(--eye);transition:stop-color .3s}
+.s-dim{stop-color:var(--eye);stop-opacity:.22;transition:stop-color .3s}
+.blink .eye{transform:scaleY(.1)}
+.drowsy .eye{transform:scale(.82);transition-duration:.6s}
+.slowblink .eye{transform:scaleY(.1);transition:transform .35s ease-in-out}
+.beat .eye{filter:drop-shadow(0 0 4px var(--halo)) brightness(1.3)}
+.m-sleep .eye{filter:none}
+.cheek{position:absolute;bottom:-2px;width:11px;height:5px;border-radius:50%;background:var(--pink);opacity:0;transition:opacity .3s;filter:blur(.7px)}
+.cheek.l{left:-7px}.cheek.r{right:-7px}
+.notch:not(.peek):not(.open) .cheek{display:none}
+/* headphones pop on while music plays */
+.phones{position:absolute;left:50%;top:50%;width:36px;height:20px;overflow:visible;pointer-events:none;opacity:0;
+  transform:translate(-50%,-66.7%) scale(0);transform-origin:50% 66.7%;transition:transform .45s cubic-bezier(.3,1.6,.5,1),opacity .2s}
+.tunes .phones{opacity:1;transform:translate(-50%,-66.7%) scale(1)}
+.notch.peek .phones,.notch.open .phones{width:124px;height:68px}
+@container (max-width:460px){.notch.peek .phones,.notch.open .phones{width:100px;height:55px}}
+.phones .band{fill:none;stroke:var(--gear);stroke-width:7;stroke-linecap:round}
+.phones .hi{fill:none;stroke:rgba(255,255,255,.16);stroke-width:2;stroke-linecap:round}
+.phones .cup{fill:#3c4159;stroke:#50567392;stroke-width:1.5}
+.phones .pad{fill:#2a2e40}
+.phones .led{fill:var(--eye);transition:fill .3s}
+.beat .phones .led{fill:#fff}
+
+/* ===== Moods: color + body language (eye shapes are drawn in script) ===== */
+.notch.m-love{--eye:var(--pink);--halo:rgba(255,143,179,.65)}
+.notch.m-sad{--eye:var(--blue);--halo:rgba(143,184,255,.55)}
+.notch:is(.m-angry,.m-grumpy){--eye:var(--ember);--halo:rgba(255,138,92,.6)}
+.notch.m-excited{--eye:var(--gold);--halo:rgba(255,224,138,.6)}
+.notch.m-sleep{--halo:transparent}
+.notch:is(.m-love,.m-shy) .cheek{opacity:.9}
+.m-wink .head{transform:rotate(-6deg)}
+.m-happy .head{animation:hop .45s}
+.m-excited .head{animation:hop .34s infinite}
+.m-proud .head{transform:translateY(-2px) scale(1.06)}
+.m-sad .head{transform:translateY(3px)}
+.m-grumpy .head{transform:translateY(2px)}
+.m-angry .head{animation:shake .12s infinite}
+.m-curious .head{transform:rotate(-10deg)}
+.m-shy .head{transform:translate(3px,2px) rotate(7deg)}
+.m-nervous .head{animation:shiver .09s infinite}
+.m-sleep .head{animation:breathe 3s ease-in-out infinite}
+.m-dizzy .head{animation:wobble .8s ease-in-out infinite}
+.alarm .head{animation:shake .08s infinite!important}
+.alarm .s-lit{animation:flashStop .32s steps(2,jump-none) infinite}
+@keyframes flashStop{from{stop-color:var(--led)}to{stop-color:var(--pink)}}
+@keyframes hop{0%,100%{transform:none}40%{transform:translateY(-4px)}}
+@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
+@keyframes shiver{0%,100%{transform:none}50%{transform:translateX(1px)}}
+@keyframes wobble{0%,100%{transform:rotate(0)}25%{transform:rotate(-9deg)}75%{transform:rotate(9deg)}}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(.95) translateY(1px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tunes.groove-bounce .groove{animation:gBounce var(--beat,.5s) ease-in-out infinite alternate}
+.tunes.groove-sway .groove{animation:gSway calc(var(--beat,.7s) * 2) ease-in-out infinite alternate}
+.tunes.groove-shuffle .groove{animation:gShuffle var(--beat,.45s) ease-in-out infinite alternate}
+@keyframes gBounce{from{transform:translateY(1px)}to{transform:translateY(-2px)}}
+@keyframes gSway{from{transform:rotate(-7deg)}to{transform:rotate(7deg)}}
+@keyframes gShuffle{from{transform:translateX(-4px) rotate(-3deg)}to{transform:translateX(4px) rotate(3deg)}}
+.wiggle{animation:wig .5s}
+@keyframes wig{20%{transform:translateX(-50%) rotate(-4deg)}50%{transform:translateX(-50%) rotate(4deg)}80%{transform:translateX(-50%) rotate(-2deg)}}
+.dance .eyes{animation:bop .4s ease-in-out infinite alternate}
+@keyframes bop{from{transform:translate(-8px,2px) rotate(-8deg)}to{transform:translate(8px,-2px) rotate(8deg)}}
+
+/* wings beside the closed notch: record on the left, countdown or equalizer on the right */
+.wing{position:absolute;top:0;height:100%;display:flex;align-items:center;opacity:0;transition:opacity .25s;pointer-events:none}
+.wing.l{left:12px}.wing.r{right:12px}
+.notch.live:not(.peek):not(.open) .wing{opacity:1}
+.wing .ic{width:11px;height:11px;color:var(--led)}
+.alarm .wing .ic{color:var(--pink)}
+.bars{display:flex;gap:2px;align-items:flex-end;height:12px}
+.bars i{width:3px;height:3px;border-radius:1px;background:var(--led)}
+.count{font:500 11px var(--f-mono);color:var(--led);font-variant-numeric:tabular-nums}
+.alarm .count{animation:blinkTxt .5s steps(2,jump-none) infinite;color:var(--pink)}
+@keyframes blinkTxt{from{opacity:1}to{opacity:.25}}
+/* vinyl records */
+.vinyl{position:relative;flex:none;border-radius:50%;--lbl:var(--gold);
+  background:radial-gradient(circle,var(--lbl) 0 21%,#0b0b10 22% 26%,#1c1c25 27% 29%,#0b0b10 30% 41%,#1b1b24 42% 44%,#0b0b10 45% 58%,#1a1a22 59% 61%,#0b0b10 62% 100%);
+  animation:spin var(--spin,2s) linear infinite;animation-play-state:paused}
+.vinyl::before{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 20deg,transparent 0 40deg,rgba(255,255,255,.14) 60deg,transparent 85deg 220deg,rgba(255,255,255,.09) 240deg,transparent 262deg)}
+.vinyl::after{content:"";position:absolute;inset:46%;border-radius:50%;background:var(--notch)}
+.vinyl.spinning{animation-play-state:running}
+.vinyl.mini{width:16px;height:16px}
+.vinyl.big{width:54px;height:54px;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+@container (max-width:460px){.vinyl.big{width:42px;height:42px}}
+
+/* particles */
+.fx{position:absolute;inset:0;pointer-events:none;z-index:6}
+.pt{position:absolute;width:12px;height:12px;left:0;top:0;opacity:0}
+.pt svg{width:100%;height:100%;display:block;fill:currentColor}
+.pt-heart{color:var(--pink)}.pt-note{color:var(--led)}.pt-spark,.pt-star,.pt-sun,.pt-pin,.pt-bell{color:var(--gold)}.pt-drop,.pt-tear,.pt-rain{color:var(--blue)}
+.pt-snow{color:#fff}.pt-cloud{color:var(--cloud)}
+.pt-q,.pt-bang,.pt-z{width:auto;height:auto;font:800 15px/1 var(--f-display);color:var(--led)}
+.pt-bang{color:var(--gold)}
+.pt-puff{border-radius:50%;background:#a6abbf}
+
+/* speech bubble and lyric line under the notch */
+.bubble{position:absolute;left:50%;top:calc(var(--nh) + var(--strip) + 10px);transform:translate(-50%,-6px);z-index:5;max-width:min(300px,84%);
+  background:#eeeef2;color:#14151c;font:500 12px/1.3 var(--f-body);padding:6px 11px;border-radius:12px;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s,top .45s;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.bubble.show{opacity:1;transform:translate(-50%,0)}
+.screen:has(.nlyric:not([hidden])) .bubble{top:calc(var(--nh) + var(--strip) + 40px)}
+.screen:has(.notch.peek) .bubble{top:calc(var(--nh) + clamp(46px,9cqw,64px) + 10px)}
+.screen:has(.notch.open) .bubble{opacity:0}
+.nlyric{position:absolute;left:50%;top:calc(var(--nh) + var(--strip) + 6px);transform:translateX(-50%);z-index:4;max-width:min(420px,86%);
+  background:rgba(0,0,0,.88);border:1px solid rgba(255,255,255,.08);color:var(--bot-fg);font:500 12px var(--f-body);padding:5px 12px;border-radius:99px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;animation:pop .3s ease-out}
+
+/* ===== The open panel ===== */
+.panel{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding:0 14px 12px;opacity:0;visibility:hidden;transition:opacity .2s,visibility 0s linear .2s}
+.notch.open .panel{opacity:1;visibility:visible;transition:opacity .25s .2s,visibility 0s}
+.tabs{display:flex;justify-content:center;flex:none}
+.tabset{position:relative;display:flex;gap:34px;--ti:0}
+.tab{width:32px;height:26px;border:0;background:transparent;padding:0 0 6px;display:grid;place-items:center;cursor:pointer;color:rgba(233,235,243,.38);border-radius:6px}
+.tab:hover{color:rgba(233,235,243,.62)}
+.tab.on{color:var(--led)}
+.tab .ic{width:15px;height:15px}
+.tabdot{position:absolute;left:0;bottom:2px;width:4px;height:4px;border-radius:50%;background:var(--led);transform:translateX(calc(var(--ti) * 66px + 14px));transition:transform .35s cubic-bezier(.3,1.5,.5,1)}
+.view{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
+.view.cv{flex:none;display:block}
+.vin{display:flex;flex-direction:column;gap:10px}
+.msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0;scrollbar-width:none;padding:2px 0}
+.msgs::-webkit-scrollbar{display:none}
+.msg{max-width:85%;padding:6px 10px;border-radius:12px;font-size:13px;line-height:1.35;animation:pop .25s ease-out;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.bot{align-self:flex-start;background:var(--bot-bg);color:var(--bot-fg);font:12.5px/1.4 var(--f-mono)}
+.msg.me{align-self:flex-end;background:rgba(255,255,255,.13);color:var(--fg)}
+.cap{display:flex;align-items:center;gap:5px;padding-left:4px;font-size:11px;color:rgba(233,235,243,.5);animation:pop .25s ease-out}
+.cap .ic{width:10px;height:10px;color:var(--gold);opacity:.85}
+.typing span{display:inline-block;width:5px;height:5px;margin:0 1px;border-radius:50%;background:var(--led);animation:dot 1s infinite}
+.typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
+@keyframes dot{0%,60%,100%{opacity:.35;transform:none}30%{opacity:1;transform:translateY(-3px)}}
+@keyframes pop{from{opacity:0;transform:translateY(4px)}}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;font:500 11px var(--f-body);color:var(--led);background:transparent;border:1px solid rgba(114,240,214,.45);border-radius:99px;padding:3px 9px;cursor:pointer}
+.chip:hover,.chip.on{background:var(--bot-bg)}
+.chip.on{border-color:rgba(114,240,214,.9)}
+.say{display:flex;gap:6px;flex:none;margin:0}
+#inp{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid transparent;color:var(--fg);border-radius:10px;padding:7px 10px;font:13px var(--f-body)}
+#inp:focus{outline:none;border-color:var(--led-dim)}
+.send{background:var(--led);color:var(--led-ink);border:0;border-radius:10px;padding:0 12px;font:600 13px var(--f-body);cursor:pointer}
+.send:disabled{opacity:.5;cursor:default}
+
+/* weather card in the chat */
+.wcard{align-self:flex-start;width:min(286px,100%);background:var(--bot-bg);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;animation:pop .3s ease-out}
+.wtop{display:flex;align-items:center;gap:10px}
+.wtop>svg{width:30px;height:30px;flex:none}
+.wtemp{font:800 22px/1 var(--f-display);color:#fff}
+.wcond{font-size:11.5px;color:rgba(233,235,243,.65);margin-top:2px}
+.wright{margin-left:auto;text-align:right;min-width:0;display:flex;flex-direction:column;gap:1px}
+.wplace{font:600 12px var(--f-body);color:var(--bot-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.whl{font-size:11px;color:rgba(233,235,243,.65)}
+.wfeel{font-size:10.5px;color:var(--faint)}
+.wdays{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid rgba(255,255,255,.08);padding-top:7px;text-align:center}
+.wday{display:flex;flex-direction:column;align-items:center;gap:3px;font:500 11px var(--f-body)}
+.wday .wd{font-size:10.5px;color:var(--dim)}
+.wday svg{width:16px;height:16px}
+.wday .lo{color:var(--faint)}
+.wday .rain{font:600 9.5px var(--f-body);color:var(--blue)}
+
+/* Pip's running commentary inside DJ Pip and Timer */
+.says{display:flex;gap:8px;align-items:flex-start;background:var(--bot-bg);color:var(--bot-fg);border-radius:10px;padding:7px 10px;font:12px/1.35 var(--f-mono)}
+.says b{flex:none;display:flex;gap:3px;padding-top:4px}
+.says b::before,.says b::after{content:"";width:4px;height:6px;border-radius:1.5px;background:var(--led)}
+.says.pop{animation:pop .3s ease-out}
+
+/* DJ Pip */
+.djrow{display:flex;align-items:center;gap:12px}
+.meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.ttl{font:600 14px/1.25 var(--f-body);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.artist{font-size:12px;line-height:1.25;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctrls{display:flex;align-items:center;gap:6px;flex:none}
+.rb{width:28px;height:28px;border-radius:50%;border:0;background:var(--wash);color:#fff;display:grid;place-items:center;cursor:pointer;padding:0;flex:none}
+.rb .ic{width:11px;height:11px}
+.rb.big{width:38px;height:38px;background:var(--led);color:var(--led-ink)}
+.rb.big .ic{width:15px;height:15px}
+.rb:disabled{color:rgba(233,235,243,.3);cursor:default}
+.rb.heart.on{color:var(--pink)}
+.rb.heart.on .ic{animation:thump .35s}
+@keyframes thump{50%{transform:scale(1.35)}}
+.sprog .bar{height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+.sprog .bar i{display:block;height:100%;width:0;border-radius:2px;background:linear-gradient(90deg,var(--led),var(--to,var(--gold)))}
+.times{display:flex;justify-content:space-between;margin-top:4px;font:10.5px var(--f-mono);color:var(--faint);font-variant-numeric:tabular-nums}
+.lyr{min-height:38px;display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.lyr .now{font:600 14px/1.3 var(--f-body);color:#fff;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lyr .now.in{animation:lyIn .35s ease-out}
+@keyframes lyIn{from{opacity:0;transform:translateY(8px)}}
+.lyr .next{font-size:12px;color:rgba(233,235,243,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@container (max-width:460px){.djrow{gap:9px}.ctrls{gap:4px}}
+
+/* Timer */
+.trow{display:flex;align-items:center;gap:6px}
+.tdig{flex:1;font:800 40px/1 var(--f-display);color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.01em;padding-top:4px}
+.alarm .tdig{color:var(--pink)}
+.presets{display:flex;gap:6px}
+.presets .chip{min-width:34px;text-align:center}
+@container (max-width:460px){.tdig{font-size:34px}}
+
+/* Settings (opened from the menu bar eyes icon) */
+.sview{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:16px;scrollbar-width:thin;padding-right:2px}
+.sview section{display:flex;flex-direction:column;gap:6px}
+.sview h4{margin:0;font:600 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--led)}
+.sview p{margin:0;font-size:12px;line-height:1.4;color:var(--dim)}
+.sview .fine{font-size:10.5px;color:var(--faint)}
+.notes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.notes li{display:flex;align-items:center;gap:8px;font-size:12px;background:rgba(255,255,255,.05);border-radius:8px;padding:4px 4px 4px 9px}
+.notes li span{flex:1;min-width:0;overflow-wrap:anywhere}
+.notes li button{border:0;background:transparent;color:var(--muted);width:22px;height:22px;border-radius:6px;cursor:pointer;display:grid;place-items:center}
+.notes li button:hover{background:var(--wash);color:#fff}
+.quiet{align-self:flex-start;background:var(--wash);border:0;border-radius:10px;padding:6px 12px;font:500 12.5px var(--f-body);color:rgba(233,235,243,.88);cursor:pointer}
+.quiet:hover{background:rgba(255,255,255,.18)}
+.quiet.warn{color:var(--ember)}
+.done{flex:none;align-self:stretch;text-align:center;padding:7px 12px}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--fg);cursor:pointer}
+.sw input{appearance:none;-webkit-appearance:none;flex:none;width:30px;height:18px;border-radius:99px;background:rgba(255,255,255,.18);position:relative;cursor:pointer;margin:0;transition:background .2s}
+.sw input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .2s}
+.sw input:checked{background:var(--led)}
+.sw input:checked::after{transform:translateX(12px)}
+
+/* ===== Feature cards ===== */
+.sechead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px}
+h2{font:800 clamp(26px,3.4vw,34px)/1.05 var(--f-display);margin:0;text-wrap:balance}
+h3{font:600 19px/1.2 var(--f-display);margin:0;color:var(--fg)}
+.secnote{margin:0;color:var(--muted);font-size:14px}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.legend article{background:var(--panel);padding:16px 18px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.legend h3{color:var(--led)}
+.legend p{flex:1;margin:0 0 10px;color:var(--muted);font-size:14px;text-wrap:pretty}
+.try{margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:7px;font:600 12.5px var(--f-body);color:var(--led);background:transparent;border:1px solid var(--led-dim);border-radius:99px;padding:5px 13px 5px 10px;cursor:pointer;transition:background .15s}
+.try .ic{width:9px;height:9px}
+.try:hover{background:var(--bot-bg)}
+
+/* ===== Download ===== */
+.get{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:32px 48px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:30px clamp(18px,4vw,44px) 34px;scroll-margin-top:16px}
+@media (max-width:860px){.get{grid-template-columns:minmax(0,1fr)}}
+.getl,.getr{display:flex;flex-direction:column;gap:16px;min-width:0}
+.getl p{margin:0;color:var(--muted)}
+.dl{align-self:flex-start;display:inline-flex;align-items:center;gap:14px;background:var(--led);color:var(--led-ink);text-decoration:none;border-radius:18px;padding:12px 26px 12px 12px;
+  box-shadow:0 12px 34px -12px rgba(114,240,214,.6);transition:transform .2s,box-shadow .2s}
+.dl:hover{transform:translateY(-2px);box-shadow:0 16px 38px -12px rgba(114,240,214,.75)}
+.dl .mini{width:58px;height:34px;flex:none;background:var(--notch);border-radius:3px 3px 15px 15px;display:flex;gap:7px;align-items:center;justify-content:center}
+.dl .mini i{width:9px;height:15px;border-radius:5px;background:var(--led);box-shadow:0 0 7px rgba(114,240,214,.9);transition:height .2s,border-radius .2s,transform .2s}
+.dl:hover .mini i{height:7px;border-radius:7px 7px 2px 2px;transform:translateY(-1px)}
+.dl .lbl{display:flex;flex-direction:column;gap:2px}
+.dl strong{font:800 24px/1 var(--f-display)}
+.dl small{font:500 12.5px var(--f-body);opacity:.78}
+.reqs{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;margin:0;font-size:14px}
+.reqs dt{font:500 11px/1.9 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--led)}
+.reqs dd{margin:0;color:var(--fg)}
+.reqs dd span{color:var(--muted)}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px;counter-reset:s}
+.steps li{display:grid;grid-template-columns:30px minmax(0,1fr);gap:12px;counter-increment:s}
+.steps li::before{content:counter(s);width:28px;height:28px;border-radius:50%;border:1.5px solid var(--led-dim);color:var(--led);display:grid;place-items:center;font:500 13px var(--f-mono)}
+.steps b{color:var(--fg);font-weight:600}
+.steps p{margin:2px 0 0;color:var(--muted)}
+.mock{margin-top:10px;background:#1e1f25;border:1px solid #33343c;border-radius:10px;padding:10px 12px;font:12.5px/1.35 var(--f-mac);color:#e6e6ea;display:flex;flex-direction:column;gap:8px;max-width:420px}
+.mock .mh{font-weight:600;font-size:11.5px;color:#a7a8b3}
+.mock .mr{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.mock .mb{background:#4a4b55;color:#fff;border-radius:6px;padding:3px 11px;font-weight:500;white-space:nowrap;box-shadow:0 0 0 2px var(--led)}
+.mockcap{font:11px var(--f-mono);color:var(--faint);margin-top:6px}
+.after{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:16px}
+.after p{margin:0;color:var(--muted)}
+.asks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.asks li{display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;color:var(--muted)}
+.asks li .ic{width:16px;height:16px;color:var(--led);margin-top:3px}
+.asks b{color:var(--fg);font-weight:600}
+.know{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:18px 28px}
+.know div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.know b{font:600 15px var(--f-display);color:var(--fg)}
+.know p{margin:0;font-size:14px;color:var(--muted)}
+footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 24px;border-top:1px solid var(--line);padding-top:18px;font-size:13px;color:var(--muted)}
+footer p{margin:0}
+footer a{color:var(--bot-fg)}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0s!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M11.5 5v14L2 12zM22 5v14l-9.5-7z"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M12.5 5v14L22 12zM2 5v14l9.5-7z"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.1 0 3.6 1.2 5.2 3 1.6-1.8 3.1-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></symbol>
+  <symbol id="i-heart-o" viewBox="0 0 24 24"><path d="M12 19.3s-6.4-4-8.2-7.9C2.6 8.6 4.3 6 7 6c1.9 0 3.2 1.3 5 3.3C13.8 7.3 15.1 6 17 6c2.7 0 4.4 2.6 3.2 5.4-1.8 3.9-8.2 7.9-8.2 7.9z" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-heart-off" viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.1 0 3.6 1.2 5.2 3 1.6-1.8 3.1-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z" opacity=".55"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M6.34 6.34A8 8 0 1 0 12 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M7.6 4L13.4.2v7.6z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M12 2a6 6 0 0 0-6 6v5l-2 3v1h16v-1l-2-3V8a6 6 0 0 0-6-6zm-2.6 17a2.6 2.6 0 0 0 5.2 0z"/></symbol>
+  <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M12 2a6 6 0 0 0-6 6v5l-2 3v1h16v-1l-2-3V8a6 6 0 0 0-6-6zm-2.6 17a2.6 2.6 0 0 0 5.2 0z"/><path d="M3 3l18 18" stroke="var(--led)" stroke-width="5" stroke-linecap="round"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="8" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M9 2h6M12 13.5V9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M18.5 5.5l1.6-1.6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5.5 3h13A3.5 3.5 0 0 1 22 6.5v7a3.5 3.5 0 0 1-3.5 3.5H11l-5.2 4.2V17h-.3A3.5 3.5 0 0 1 2 13.5v-7A3.5 3.5 0 0 1 5.5 3z"/></symbol>
+  <symbol id="i-phones" viewBox="0 0 24 24"><path d="M3.5 15v-2.5a8.5 8.5 0 0 1 17 0V15" fill="none" stroke="currentColor" stroke-width="2.6"/><rect x="2" y="13" width="5.5" height="8.5" rx="2.2"/><rect x="16.5" y="13" width="5.5" height="8.5" rx="2.2"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M8.5 2h7v2.2l-1.3 1.3v4.8l3.3 3.3V16h-4.4v5.2L12 23l-1.1-1.8V16H6.5v-2.4l3.3-3.3V5.5L8.5 4.2z"/></symbol>
+  <symbol id="i-pin-off" viewBox="0 0 24 24"><path d="M8.5 2h7v2.2l-1.3 1.3v4.8l3.3 3.3V16h-4.4v5.2L12 23l-1.1-1.8V16H6.5v-2.4l3.3-3.3V5.5L8.5 4.2z" opacity=".55"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9 2l2 6.5L17.5 11 11 13l-2 6.5L7 13 .5 11 7 8.5zM18.5 13l1 3 3 1-3 1-1 3-1-3-3-1 3-1z"/></symbol>
+  <symbol id="i-eyes" viewBox="0 0 24 24"><rect x="5" y="5.5" width="5.2" height="13" rx="2.6"/><rect x="13.8" y="5.5" width="5.2" height="13" rx="2.6"/></symbol>
+  <symbol id="i-spk" viewBox="0 0 24 24"><path d="M3 9h4l5-4.5v15L7 15H3z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-spk-off" viewBox="0 0 24 24"><path d="M3 9h4l5-4.5v15L7 15H3z"/><path d="M15.5 9l6 6M21.5 9l-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 8.8a15 15 0 0 1 20 0M5.3 12.3a10 10 0 0 1 13.4 0M8.6 15.8a5 5 0 0 1 6.8 0" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/><circle cx="12" cy="19.3" r="1.7"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 3v11.6A3.5 3.5 0 1 0 11 18V8h7V3z"/></symbol>
+  <symbol id="i-pinloc" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></symbol>
+  <symbol id="i-update" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M15 2.2l6.3.6-.9 6.2z"/><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="w-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6" style="fill:var(--gold)"/><path d="M12 2v2.6M12 19.4V22M2 12h2.6M19.4 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8" style="stroke:var(--gold)" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="w-moon" viewBox="0 0 24 24"><path d="M15.5 3.5a8.5 8.5 0 1 0 5 13.6A7 7 0 0 1 15.5 3.5z" style="fill:var(--gold)"/><path d="M19 4l.7 1.8 1.8.7-1.8.7L19 9l-.7-1.8-1.8-.7 1.8-.7z" style="fill:var(--gold)"/></symbol>
+  <symbol id="w-cloud" viewBox="0 0 24 24"><path d="M7 19a5 5 0 0 1-.6-9.96A6 6 0 0 1 18 8.5a4.5 4.5 0 0 1-.5 10.5z" style="fill:var(--cloud)"/></symbol>
+  <symbol id="w-partly" viewBox="0 0 24 24"><circle cx="8" cy="8" r="4" style="fill:var(--gold)"/><path d="M8 1.5v1.8M1.5 8h1.8M3.4 3.4l1.3 1.3M12.6 3.4l-1.3 1.3" style="stroke:var(--gold)" stroke-width="1.8" stroke-linecap="round"/><path d="M9 21a4.5 4.5 0 0 1-.5-8.97A5.5 5.5 0 0 1 19 11.5a4.6 4.6 0 0 1-.4 9.5z" style="fill:var(--cloud)"/></symbol>
+  <symbol id="w-rain" viewBox="0 0 24 24"><path d="M7 15a4.6 4.6 0 0 1-.5-9.2A5.8 5.8 0 0 1 17.6 5a4 4 0 0 1-.1 10z" style="fill:var(--cloud)"/><path d="M8 17.5l-1.2 3M12.5 17.5l-1.2 3M17 17.5l-1.2 3" style="stroke:var(--blue)" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="w-snow" viewBox="0 0 24 24"><path d="M12 2.5v19M3.8 7.25l16.4 9.5M3.8 16.75l16.4-9.5M9.2 4l2.8 2 2.8-2M9.2 20l2.8-2 2.8 2" fill="none" style="stroke:#fff" stroke-width="1.9" stroke-linecap="round"/></symbol>
+  <symbol id="w-storm" viewBox="0 0 24 24"><path d="M7 14a4.6 4.6 0 0 1-.5-9.2A5.8 5.8 0 0 1 17.6 4a4 4 0 0 1-.1 10z" style="fill:var(--cloud)"/><path d="M13 13l-4 5.5h3.2L10.5 23l5-6.5h-3.3l1.6-3.5z" style="fill:var(--gold)"/></symbol>
+</svg>
+
+<div class="wrap">
+  <header>
+    <div class="titlerow">
+      <h1>Pip the <span>Notchbot</span></h1>
+      <span class="tag">Free · for macOS 14+</span>
+    </div>
+    <p class="sub">A tiny robot that lives in your MacBook's notch. Pip DJs your Spotify or Apple Music, keeps your timers, checks the weather, remembers what you tell it, and makes faces the whole time.</p>
+    <div class="cta">
+      <a class="btn" href="#download" data-keep>Get Pip for your Mac</a>
+      <span class="hint">Or play with the live Pip below first.</span>
+    </div>
+  </header>
+
+  <section aria-label="Live demo of Pip">
+    <div class="laptop">
+      <div class="screen" id="screen">
+        <div class="menubar">
+          <div class="l"><b>Finder</b><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span></div>
+          <div class="r">
+            <button class="mbbtn" id="pipMenuBtn" type="button" aria-label="Pip's menu" aria-haspopup="menu" aria-expanded="false" aria-controls="pipMenu" title="Pip's menu" data-keep><svg class="ic"><use href="#i-eyes"/></svg></button>
+            <svg class="ic" id="spk" role="img" aria-label="Sound on"><use href="#i-spk"/></svg>
+            <svg class="ic wifi" aria-hidden="true"><use href="#i-wifi"/></svg>
+            <span><span class="wkd" id="wkd">Sat </span><span id="clock">9:40 PM</span></span>
+          </div>
+        </div>
+        <div class="mbmenu" id="pipMenu" role="menu" aria-label="Pip" hidden data-keep>
+          <button class="mi" role="menuitem" type="button" data-m="open">Open Pip</button>
+          <button class="mi" role="menuitem" type="button" data-m="moods" aria-expanded="false">Try a Mood <svg class="ic chev"><use href="#i-chev"/></svg></button>
+          <div class="moodgrid" id="moodGrid" hidden></div>
+          <button class="mi" role="menuitem" type="button" data-m="nap">Nap Time</button>
+          <button class="mi" role="menuitem" type="button" data-m="settings">Settings…</button>
+          <button class="mi" role="menuitem" type="button" data-m="update">Check for Updates…</button>
+          <hr>
+          <button class="mi" role="menuitem" type="button" data-m="quit">Quit Pip</button>
+        </div>
+        <div class="hills"></div>
+        <div class="nlyric" id="nlyric" hidden></div>
+        <div class="bubble" id="bubble" role="status"></div>
+
+        <div class="notch" id="notch">
+          <div class="top">
+            <div class="wing l"><div class="vinyl mini" id="miniVinyl"></div><svg class="ic" id="wingIcon" hidden><use href="#i-timer"/></svg></div>
+            <div class="wing r"><div class="bars" id="wingBars"><i></i><i></i><i></i><i></i></div><span class="count" id="wingCount" hidden></span></div>
+          </div>
+          <button class="face" id="face" type="button" aria-label="Open Pip" aria-expanded="false">
+            <span class="groove"><span class="head">
+              <svg class="phones" viewBox="0 0 120 66" aria-hidden="true"><path class="band" d="M15 44C15 4 105 4 105 44"/><path class="hi" d="M25 28C32 13 88 13 95 28"/><rect class="cup" x="3" y="29" width="22" height="30" rx="10"/><rect class="cup" x="95" y="29" width="22" height="30" rx="10"/><rect class="pad" x="19" y="34" width="6" height="20" rx="3"/><rect class="pad" x="95" y="34" width="6" height="20" rx="3"/><rect class="led" x="7" y="38" width="3.5" height="12" rx="1.75"/><rect class="led" x="109.5" y="38" width="3.5" height="12" rx="1.75"/></svg>
+              <span class="eyes" id="eyes">
+                <svg class="eye" viewBox="-1.25 -1.25 2.5 2.5" aria-hidden="true"><defs><linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop class="s-dim" offset="0"/><stop class="s-dim" offset="0"/><stop class="s-lit" offset="0"/><stop class="s-lit" offset="1"/></linearGradient></defs><path fill="url(#gA)"/></svg>
+                <svg class="eye" viewBox="-1.25 -1.25 2.5 2.5" aria-hidden="true"><defs><linearGradient id="gB" x1="0" y1="0" x2="0" y2="1"><stop class="s-dim" offset="0"/><stop class="s-dim" offset="0"/><stop class="s-lit" offset="0"/><stop class="s-lit" offset="1"/></linearGradient></defs><path fill="url(#gB)"/></svg>
+                <i class="cheek l"></i><i class="cheek r"></i>
+              </span>
+            </span></span>
+          </button>
+          <div class="panel" id="panel">
+            <div class="tabs" id="tabs">
+              <div class="tabset" id="tabset" role="tablist" aria-label="Pip's panel">
+                <button class="tab on" type="button" role="tab" id="t-chat" data-tab="chat" aria-controls="v-chat" aria-selected="true" aria-label="Chat" title="Chat"><svg class="ic"><use href="#i-chat"/></svg></button>
+                <button class="tab" type="button" role="tab" id="t-music" data-tab="music" aria-controls="v-music" aria-selected="false" aria-label="DJ Pip" title="DJ Pip" tabindex="-1"><svg class="ic"><use href="#i-phones"/></svg></button>
+                <button class="tab" type="button" role="tab" id="t-timer" data-tab="timer" aria-controls="v-timer" aria-selected="false" aria-label="Timer" title="Timer" tabindex="-1"><svg class="ic"><use href="#i-timer"/></svg></button>
+                <i class="tabdot" aria-hidden="true"></i>
+              </div>
+            </div>
+
+            <div class="view" id="v-chat" role="tabpanel" aria-labelledby="t-chat">
+              <div class="msgs" id="msgs" aria-live="polite"></div>
+              <div class="chips" id="chips"></div>
+              <form class="say" id="form"><input id="inp" autocomplete="off" placeholder="Say something to Pip…" aria-label="Message Pip"><button class="send" id="sendBtn">Send</button></form>
+            </div>
+
+            <div class="view cv" id="v-music" role="tabpanel" aria-labelledby="t-music" hidden>
+              <div class="vin">
+                <div class="djrow">
+                  <div class="vinyl big" id="disc"></div>
+                  <div class="meta"><div class="ttl" id="ttl">Nothing playing</div><div class="artist" id="artist">Press play to start Pip FM</div></div>
+                  <div class="ctrls">
+                    <button class="rb heart" id="heartBtn" type="button" aria-label="Heart this song" aria-pressed="false" title="Heart this song"><svg class="ic"><use href="#i-heart-o"/></svg></button>
+                    <button class="rb" id="prevBtn" type="button" aria-label="Previous" title="Previous"><svg class="ic"><use href="#i-prev"/></svg></button>
+                    <button class="rb big" id="playBtn" type="button" aria-label="Play" title="Play"><svg class="ic"><use href="#i-play"/></svg></button>
+                    <button class="rb" id="nextBtn" type="button" aria-label="Next" title="Next"><svg class="ic"><use href="#i-next"/></svg></button>
+                  </div>
+                </div>
+                <div class="sprog" id="sprog" hidden><div class="bar"><i id="sbar"></i></div><div class="times"><span id="sNow">0:00</span><span id="sLen">0:00</span></div></div>
+                <div class="lyr" id="lyr" hidden><div class="now" id="lyrNow">♪</div><div class="next" id="lyrNext"></div></div>
+                <div class="says" id="says-music"><b></b><span>Press play and I'll put my headphones on.</span></div>
+              </div>
+            </div>
+
+            <div class="view cv" id="v-timer" role="tabpanel" aria-labelledby="t-timer" hidden>
+              <div class="vin">
+                <div class="trow">
+                  <div class="tdig" id="tdig">5:00</div>
+                  <button class="rb big" id="tGo" type="button" aria-label="Start" title="Start"><svg class="ic"><use href="#i-play"/></svg></button>
+                  <button class="rb" id="tReset" type="button" aria-label="Reset" title="Reset"><svg class="ic"><use href="#i-reset"/></svg></button>
+                </div>
+                <div class="sprog"><div class="bar"><i id="tbar" style="--to:var(--gold)"></i></div><div class="times"><span id="tDone">Ready</span><span id="tTot">5:00</span></div></div>
+                <div class="presets" id="presets"></div>
+                <div class="says" id="says-timer"><b></b><span>Pick a time and I'll charge up. My eyes drain as the clock runs.</span></div>
+              </div>
+            </div>
+
+            <div class="view" id="v-settings" hidden>
+              <div class="sview">
+                <section><h4>Pip's AI brain</h4><p>In the app, you can paste a Claude API key here and Pip really talks: it answers anything in character and picks its own moods. The key stays in your Mac's Keychain. This page never asks for it.</p></section>
+                <section><h4>Pip's memory</h4><p id="memEmpty">No notes yet. Tell Pip “remember that…” in the chat.</p><ul class="notes" id="memList"></ul><button class="quiet warn" id="wipeBtn" type="button" hidden>Forget everything</button></section>
+                <section><h4>Hearts and listening</h4><p id="heartStats">0 hearted songs · 0 plays</p><ul class="notes" id="heartList"></ul></section>
+                <section><h4>Weather</h4><p>Home: Notchville (a pretend town for this demo). In the app, Pip uses your Mac's location, or a town you type here.</p><p class="fine">Weather data by Open-Meteo.com</p></section>
+                <section><h4>Lyrics</h4>
+                  <label class="sw" for="lyrOn">Show synced lyrics in DJ Pip <input type="checkbox" id="lyrOn" checked></label>
+                  <label class="sw" for="lyrNotch">Also show them under the notch <input type="checkbox" id="lyrNotch"></label>
+                </section>
+              </div>
+              <button class="quiet done" id="setDone" type="button">Done</button>
+            </div>
+          </div>
+        </div>
+        <div class="fx" id="fx"></div>
+      </div>
+      <div class="base"></div>
+    </div>
+    <p class="scenecap"><span><b>Hover</b> the notch to peek</span><span><b>Click</b> to open, click outside to close</span><span><b>Eyes icon</b> in the menu bar for moods and Settings</span></p>
+    <noscript><p class="scenecap">Turn on JavaScript to play with Pip.</p></noscript>
+  </section>
+
+  <section aria-labelledby="what-h" style="display:flex;flex-direction:column;gap:14px">
+    <div class="sechead"><h2 id="what-h">What Pip does</h2><p class="secnote">Each card has a button that shows it on the laptop above.</p></div>
+    <div class="legend">
+      <article>
+        <h3>Shape-shifting eyes</h3>
+        <p>Pip's eyes morph into arches, hearts, stars and winks, with blushes and body language. Poke its eyes a few times and it goes from shy to grumpy to dizzy. Leave it alone for 30 seconds and it dozes off.</p>
+        <button class="try" type="button" data-try="mood" data-keep><svg class="ic"><use href="#i-play"/></svg>Surprise me</button>
+      </article>
+      <article>
+        <h3>Chat and memory</h3>
+        <p>Ask Pip for a joke, music or a timer. Say “remember that…” and Pip keeps the note on your Mac, even after a restart. Pip answers with friendly scripted replies; for real conversations, add your own Claude API key in Settings.</p>
+        <button class="try" type="button" data-try="remember" data-keep><svg class="ic"><use href="#i-play"/></svg>Teach Pip something</button>
+      </article>
+      <article>
+        <h3>Weather</h3>
+        <p>Ask “what's the weather?” or “weather in Paris” and Pip shows a little forecast card. Its eyes react: sparkles for sun, raindrops for rain, and shivers when it's freezing.</p>
+        <button class="try" type="button" data-try="weather" data-keep><svg class="ic"><use href="#i-play"/></svg>Weather in Oslo</button>
+      </article>
+      <article>
+        <h3>DJ Pip</h3>
+        <p>Works with Spotify or Apple Music. Pip puts on headphones, bops along and comments on each song. Heart the songs you love and turn on synced lyrics. Close the panel and a spinning record sits beside the notch. This page plays Pip's own demo tunes.</p>
+        <button class="try" type="button" data-try="play" data-keep><svg class="ic"><use href="#i-play"/></svg>Play a demo song</button>
+      </article>
+      <article>
+        <h3>Quiet ads</h3>
+        <p>When a Spotify ad comes on, Pip turns your Mac's sound off and looks grumpy until it's over, then turns the sound back on. It doesn't skip or block the ad. If your Mac was already muted, Pip leaves it that way.</p>
+        <button class="try" type="button" data-try="ad" data-keep><svg class="ic"><use href="#i-play"/></svg>Play a pretend ad</button>
+      </article>
+      <article>
+        <h3>Timer buddy</h3>
+        <p>Pick 1, 5, 15 or 25 minutes. Pip's eyes charge up, then drain like an hourglass while the countdown sits beside the notch. It sweats the last 10 seconds and rings until you click it.</p>
+        <button class="try" type="button" data-try="timer" data-keep><svg class="ic"><use href="#i-play"/></svg>Quick 10-second timer</button>
+      </article>
+    </div>
+  </section>
+
+  <section class="get" id="download" aria-labelledby="get-h">
+    <div class="getl">
+      <h2 id="get-h">Get Pip</h2>
+      <p>Pip is free, made for friends. It's a small download that lives in your menu bar and your notch.</p>
+      <a class="dl" href="https://github.com/cafe100Elm/pip/releases/latest/download/Pip.zip">
+        <span class="mini" aria-hidden="true"><i></i><i></i></span>
+        <span class="lbl"><strong>Download Pip</strong><small>Pip.zip · for Mac</small></span>
+      </a>
+      <dl class="reqs">
+        <dt>Needs</dt><dd>macOS 14 Sonoma or later</dd>
+        <dt>Best on</dt><dd>A MacBook with a notch. <span>On other Macs, Pip sits at the top center of the screen.</span></dd>
+        <dt>Music</dt><dd>Spotify or Apple Music <span>(for DJ Pip)</span></dd>
+        <dt>AI brain</dt><dd>Optional. <span>For now it uses your own Claude API key.</span></dd>
+      </dl>
+    </div>
+    <div class="getr">
+      <h3>Install it in four steps</h3>
+      <ol class="steps">
+        <li><div><b>Unzip it.</b><p>Open your Downloads folder and double-click Pip.zip. You get the Pip app. (Safari often unzips it for you.)</p></div></li>
+        <li><div><b>Move it.</b><p>Drag Pip into your Applications folder.</p></div></li>
+        <li><div><b>Open it.</b><p>Double-click Pip. The first time, macOS says it can't check Pip for malware and won't open it. Click <b>Done</b>.</p></div></li>
+        <li><div><b>Allow it, once.</b><p>Open <b>System Settings › Privacy &amp; Security</b>, scroll down, and click <b>Open Anyway</b> next to Pip. Enter your Mac password, then click <b>Open Anyway</b> again. Pip pops out of your notch.</p>
+          <div class="mock" aria-hidden="true"><div class="mh">Security</div><div class="mr"><span>“Pip” was blocked to protect your Mac.</span><span class="mb">Open Anyway</span></div></div>
+          <div class="mockcap">Roughly what you'll see in System Settings</div></div></li>
+      </ol>
+      <div class="after">
+        <h3>Why the extra step?</h3>
+        <p>Pip isn't from the App Store, so macOS asks for your OK the first time. You only do it once. After that, Pip keeps itself up to date: when a new version is ready, Pip peeks out and tells you, and one click installs it.</p>
+      </div>
+      <div class="after">
+        <h3>Pip may ask you</h3>
+        <ul class="asks">
+          <li><svg class="ic"><use href="#i-music"/></svg><div><b>To control Spotify or Music.</b> Click OK so DJ Pip can play, pause and skip songs.</div></li>
+          <li><svg class="ic"><use href="#i-pinloc"/></svg><div><b>To use your location.</b> Click Allow so Pip can tell you the weather where you are. Rather not? Type your town in Pip's Settings instead.</div></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="know-h" style="display:flex;flex-direction:column;gap:16px">
+    <h2 id="know-h">Good to know</h2>
+    <div class="know">
+      <div><b>Settings</b><p>Click the eyes icon in your menu bar, then Settings…, to add a Claude key, set your town, turn on lyrics, or see what Pip remembers.</p></div>
+      <div><b>Your stuff stays on your Mac</b><p>Pip keeps its notes, chat and hearts on your Mac. Weather comes from Open-Meteo and lyrics from LRCLIB. With a Claude key, your chats go to Claude.</p></div>
+      <div><b>Quitting</b><p>Click the eyes icon in the menu bar and choose Quit Pip.</p></div>
+      <div><b>Removing Pip</b><p>Quit Pip, then drag it from Applications to the Trash.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Pip the Notchbot · free for friends · not affiliated with Apple or Spotify</p>
+    <p><a href="https://open-meteo.com/" target="_blank" rel="noopener">Weather data by Open-Meteo.com</a> · Lyrics from <a href="https://lrclib.net/" target="_blank" rel="noopener">LRCLIB</a></p>
+  </footer>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const notch=$('#notch'), face=$('#face'), eyes=$('#eyes'), msgs=$('#msgs'), scr=$('#screen'), fx=$('#fx');
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const finePointer=matchMedia('(pointer: fine)').matches;
+let mode='idle', mood='', tempMood=null, sleeping=false, alarm=false, dancing=false, onScreen=true;
+let leaveT, hoverT, idleT, moodT, peekT, pokes=[], greeted=false, busy=false, lastMove=0, napHold=0, tabNow='chat', settingsOpen=false, menuOpen=false;
+let lyricsOn=true, lyricsInNotch=false;
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const fmt=s=>{s=Math.max(0,Math.floor(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+const fmtUp=s=>fmt(Math.ceil(Math.max(0,s)-1e-6));
+const icon=(id,cls='ic')=>`<svg class="${cls}"><use href="#${id}"/></svg>`;
+function setIcon(btn,id){btn.querySelector('use').setAttribute('href','#'+id)}
+
+/* ---------- scenery ---------- */
+for(let i=0;i<40;i++){const s=document.createElement('i');s.className='star';s.style.left=Math.random()*100+'%';s.style.top=(8+Math.random()*48)+'%';s.style.opacity=.2+Math.random()*.6;scr.insertBefore(s,$('.hills'))}
+function tick(){const d=new Date();$('#wkd').textContent=d.toLocaleDateString('en-US',{weekday:'short'})+' ';$('#clock').textContent=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}
+tick();setInterval(tick,30000);
+if('IntersectionObserver' in window)new IntersectionObserver(es=>{onScreen=es[0].isIntersecting}).observe(scr);
+
+/* ---------- particles ---------- */
+const SVG={
+  heart:'<svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.1 0 3.6 1.2 5.2 3 1.6-1.8 3.1-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>',
+  note:'<svg viewBox="0 0 24 24"><path d="M9 3v11.6A3.5 3.5 0 1 0 11 18V8h6V3z"/></svg>',
+  spark:'<svg viewBox="0 0 24 24"><path d="M12 1l2.6 8.4L23 12l-8.4 2.6L12 23l-2.6-8.4L1 12l8.4-2.6z"/></svg>',
+  drop:'<svg viewBox="0 0 24 24"><path d="M12 2C9 7 6 10.5 6 14a6 6 0 0 0 12 0c0-3.5-3-7-6-12z"/></svg>',
+  sun:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  snow:'<svg viewBox="0 0 24 24"><path d="M12 2v20M3.3 7l17.4 10M3.3 17L20.7 7M9 3.5l3 2.5 3-2.5M9 20.5l3-2.5 3 2.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  cloud:'<svg viewBox="0 0 24 24"><path d="M7 19a5 5 0 0 1-.6-9.96A6 6 0 0 1 18 8.5a4.5 4.5 0 0 1-.5 10.5z"/></svg>',
+  pin:'<svg viewBox="0 0 24 24"><path d="M8.5 2h7v2.2l-1.3 1.3v4.8l3.3 3.3V16h-4.4v5.2L12 23l-1.1-1.8V16H6.5v-2.4l3.3-3.3V5.5L8.5 4.2z"/></svg>',
+  bell:'<svg viewBox="0 0 24 24"><path d="M12 2a6 6 0 0 0-6 6v5l-2 3v1h16v-1l-2-3V8a6 6 0 0 0-6-6zm-2.6 17a2.6 2.6 0 0 0 5.2 0z"/></svg>'
+};
+SVG.star=SVG.spark;SVG.tear=SVG.drop;SVG.rain=SVG.drop;
+const TEXT={q:'?',bang:'!',z:'z'};
+function emit(kind,n=1){
+  if(reduce||!onScreen||document.hidden)return;
+  const sr=scr.getBoundingClientRect(), hr=eyes.getBoundingClientRect();
+  if(!hr.width)return;
+  const big=mode!=='idle', size=big?13:9;
+  const cx=hr.left+hr.width/2-sr.left, cy=hr.top+hr.height/2-sr.top, w=Math.max(hr.width,20);
+  for(let i=0;i<n;i++){
+    const p=document.createElement('div');p.className='pt pt-'+kind;
+    if(SVG[kind])p.innerHTML=SVG[kind];else if(TEXT[kind])p.textContent=TEXT[kind];
+    if(!TEXT[kind]){p.style.width=p.style.height=(kind==='puff'?size*.8:size)+'px'}
+    let x=cx+(Math.random()-.5)*w*1.3, y=cy+(big?0:6), dx=(Math.random()-.5)*70, dy=24+Math.random()*30, rot=(Math.random()-.5)*50, dur=1100+Math.random()*500;
+    if(kind==='tear'){x=hr.left-sr.left+hr.width*.15;y=hr.bottom-sr.top;dx=-4;dy=26;rot=0;dur=1000}
+    if(kind==='drop'){x=hr.right-sr.left+4;y=hr.top-sr.top+2;dx=6;dy=22;rot=0;dur=1000}
+    if(kind==='rain'){x=cx+(Math.random()-.5)*w*1.6;dx=(Math.random()-.5)*10;dy=34+Math.random()*20;rot=0;dur=900+Math.random()*300}
+    if(kind==='puff'){const side=i%2?1:-1;x=cx+side*(w/2+8);dx=side*(26+Math.random()*12);dy=(Math.random()-.3)*14;dur=700}
+    if(kind==='q'||kind==='bang'){x=cx+w/2+10;y=cy-(big?8:-4);dx=8;dy=big?-12:16;rot=12;dur=1000}
+    if(kind==='z'){x=cx+w/2+6;y=cy;dx=16+Math.random()*6;dy=big?-22:18;rot=-10;dur=1600}
+    if(kind==='note'){const side=Math.random()<.5?-1:1;x=cx+side*(w/2+4);dx=side*(30+Math.random()*40);dy=30+Math.random()*30;dur=1500}
+    if(kind==='bell'){const side=i%2?1:-1;x=cx+side*(w/2+14);dx=side*18;dy=-4;rot=side*20;dur=700}
+    p.style.left=x+'px';p.style.top=y+'px';fx.appendChild(p);
+    p.animate([{transform:'translate(-50%,-50%) scale(.3)',opacity:0},{opacity:1,offset:.15},{opacity:1,offset:.6},
+      {transform:`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) scale(1) rotate(${rot}deg)`,opacity:0}],
+      {duration:dur,delay:i*90,easing:'cubic-bezier(.2,.7,.3,1)',fill:'backwards'}).onfinish=()=>p.remove();
+  }
+}
+
+/* ---------- eye shapes: every mood is a pair of shapes; the eyes morph between them ---------- */
+const N=40, PI=Math.PI;
+function superE(a,b,n,cx=0,cy=0){const v=[];for(let i=0;i<180;i++){const t=i/180*2*PI,c=Math.cos(t),s=Math.sin(t);v.push([cx+a*Math.sign(c)*Math.pow(Math.abs(c),2/n),cy+b*Math.sign(s)*Math.pow(Math.abs(s),2/n)])}return v}
+function band(ro,ri,cx,cy,a0,a1,sx=1){const v=[],M=60;for(let i=0;i<=M;i++){const t=a0+(a1-a0)*i/M;v.push([cx+ro*sx*Math.cos(t),cy+ro*Math.sin(t)])}
+  for(let i=M;i>=0;i--){const t=a0+(a1-a0)*i/M;v.push([cx+ri*sx*Math.cos(t),cy+ri*Math.sin(t)])}return v}
+function halfMoon(a,b,cy,yl,yr){const v=[];for(let i=0;i<=60;i++){const t=i/60*PI;v.push([a*Math.cos(t),cy+b*Math.sin(t)])}for(let i=0;i<=20;i++){const u=i/20;v.push([-a+2*a*u,yl+(yr-yl)*u])}return v}
+const slantTop=(v,k,b0)=>v.map(([x,y])=>[x,Math.max(y,b0+k*x)]);
+const SHAPES={
+  pill:()=>superE(.6,.88,3.6),
+  circle:()=>superE(.95,.95,2),
+  big:()=>superE(.92,1.02,2.3),
+  squint:()=>superE(.8,.26,3.4,0,.12),
+  dot:()=>superE(.4,.44,2,0,.1),
+  arc:()=>band(.86,.44,0,.38,PI,2*PI),
+  arcSmall:()=>band(.62,.32,0,.42,PI,2*PI),
+  soft:()=>band(.84,.22,0,.42,PI,2*PI),
+  winkArc:()=>band(.82,.6,0,.34,PI*1.04,PI*1.96),
+  closed:()=>band(.78,.6,0,-.2,PI*.06,PI*.94),
+  half:()=>halfMoon(.74,.62,.06,.06,.06),
+  smug:()=>halfMoon(.74,.58,.12,-.12,.2),
+  sad:()=>slantTop(superE(.64,.8,3.2,0,.14),-.55,-.24),
+  angry:()=>slantTop(superE(.72,.74,3.2,0,.06),.62,-.2),
+  heart:()=>{const v=[];for(let i=0;i<120;i++){const t=i/120*2*PI;v.push([Math.pow(Math.sin(t),3)*16/17*.95,-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))/17*.95+.08])}return v},
+  star:()=>{const v=[];for(let k=0;k<10;k++){const r=k%2?.42:1,a=-PI/2+k*PI/5;v.push([r*Math.cos(a),r*Math.sin(a)+.06])}return v},
+  x:()=>{const w=.2,L=.88,c=Math.SQRT1_2;return[[-w,-L],[w,-L],[w,-w],[L,-w],[L,w],[w,w],[w,L],[-w,L],[-w,w],[-L,w],[-L,-w],[-w,-w]].map(([x,y])=>[(x-y)*c,(x+y)*c])}
+};
+function resample(v){const L=[0];for(let i=1;i<=v.length;i++){const a=v[i-1],b=v[i%v.length];L.push(L[i-1]+Math.hypot(b[0]-a[0],b[1]-a[1]))}
+  const tot=L[v.length],out=[];let j=0;
+  for(let k=0;k<N;k++){const d=k/N*tot;while(j<v.length-1&&L[j+1]<d)j++;const a=v[j],b=v[(j+1)%v.length],seg=(L[j+1]-L[j])||1,u=(d-L[j])/seg;out.push([a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u])}
+  return out}
+function normalize(p){let area=0;for(let i=0;i<p.length;i++){const a=p[i],b=p[(i+1)%p.length];area+=a[0]*b[1]-b[0]*a[1]}if(area<0)p=p.slice().reverse();
+  const cx=p.reduce((s,q)=>s+q[0],0)/p.length,cy=p.reduce((s,q)=>s+q[1],0)/p.length;let best=0,bd=1e9;
+  p.forEach((q,i)=>{const a=Math.atan2(q[1]-cy,q[0]-cx)+PI/2,d=Math.abs(Math.atan2(Math.sin(a),Math.cos(a)));if(d<bd){bd=d;best=i}});
+  return p.slice(best).concat(p.slice(0,best))}
+const shapeCache={};
+function shape(name,mir){const k=name+(mir?'_m':'');if(!shapeCache[k]){let v=(SHAPES[name]||SHAPES.pill)();if(mir)v=v.map(([x,y])=>[-x,y]);shapeCache[k]=normalize(resample(v))}return shapeCache[k]}
+const FACE={'':['pill','pill'],neutral:['pill','pill'],content:['soft','soft'],happy:['arc','arc'],excited:['star','star'],love:['heart','heart'],sad:['sad','sad'],angry:['angry','angry'],grumpy:['angry','angry'],
+  curious:['big','squint'],surprise:['circle','circle'],sleepy:['half','half'],sleep:['closed','closed'],shy:['arcSmall','arcSmall'],smug:['smug','smug'],
+  focused:['squint','squint'],proud:['arc','arc'],nervous:['dot','dot'],dizzy:['x','x'],wink:['pill','winkArc']};
+const eyePaths=[...eyes.querySelectorAll('.eye path')];
+let cur=[shape('pill'),shape('pill',true)].map(p=>p.map(q=>q.slice())), mFrom=null, mTo=null, mT0=0, mDur=1, morphRAF=0;
+function toPath(p){const n=p.length,f=v=>v.toFixed(3);let d='M'+f(p[0][0])+' '+f(p[0][1]);
+  for(let i=0;i<n;i++){const p0=p[(i-1+n)%n],p1=p[i],p2=p[(i+1)%n],p3=p[(i+2)%n];
+    d+='C'+f(p1[0]+(p2[0]-p0[0])/6)+' '+f(p1[1]+(p2[1]-p0[1])/6)+' '+f(p2[0]-(p3[0]-p1[0])/6)+' '+f(p2[1]-(p3[1]-p1[1])/6)+' '+f(p2[0])+' '+f(p2[1])}return d+'Z'}
+function drawEyes(){eyePaths[0].setAttribute('d',toPath(cur[0]));eyePaths[1].setAttribute('d',toPath(cur[1]))}
+const easeBack=t=>{const c=1.25;return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2)};
+function setEyes(names,ms=300){mTo=[shape(names[0]),shape(names[1],true)];mFrom=cur.map(p=>p.map(q=>q.slice()));mT0=performance.now();mDur=reduce?1:ms;
+  if(!morphRAF)morphRAF=requestAnimationFrame(stepMorph)}
+function stepMorph(now){const t=Math.min(1,Math.max(0,(now-mT0)/mDur)),e=easeBack(t);
+  for(let k=0;k<2;k++)for(let i=0;i<N;i++){cur[k][i][0]=mFrom[k][i][0]+(mTo[k][i][0]-mFrom[k][i][0])*e;cur[k][i][1]=mFrom[k][i][1]+(mTo[k][i][1]-mFrom[k][i][1])*e}
+  drawEyes();morphRAF=t<1?requestAnimationFrame(stepMorph):0}
+/* timer fill: the lit part of each eye drains from the top, like an hourglass */
+const gradStops=[...eyes.querySelectorAll('linearGradient')].map(g=>[...g.querySelectorAll('stop')]);
+let fillNow=100, charging=false;
+function paintFill(p){const off=(1-clamp(p,0,100)/100).toFixed(4);gradStops.forEach(st=>{st[1].setAttribute('offset',off);st[2].setAttribute('offset',off)})}
+function chargeAnim(){if(reduce){paintFill(fillNow);return}charging=true;const t0=performance.now();
+  (function f(now){const t=Math.min(1,Math.max(0,(now-t0)/750));paintFill(fillNow*(1-Math.pow(1-t,3)));if(t<1)requestAnimationFrame(f);else charging=false})(t0)}
+drawEyes();paintFill(100);
+
+/* ---------- moods ---------- */
+const MOODS=['neutral','content','happy','excited','love','sad','angry','curious','surprise','wink','sleepy','sleep','shy','smug','focused','proud','nervous','dizzy','grumpy'];
+const MOOD_FX={happy:['spark',3],excited:['spark',5],proud:['spark',4],love:['heart',4],shy:['heart',1],sad:['tear',1],angry:['puff',4],curious:['q',1],surprise:['bang',1],dizzy:['star',4],nervous:['drop',1]};
+function applyMood(m){notch.className=notch.className.replace(/\bm-\w+/g,'').trim();if(m&&m!=='neutral')notch.classList.add('m-'+m);mood=m||'';setEyes(FACE[mood]||FACE[''],mood==='sleep'?900:mood==='surprise'?420:300)}
+function baseMood(){
+  if(alarm)return'surprise';
+  if(timer.running&&timer.remaining<=10)return'nervous';
+  if(sleeping)return'sleep';
+  if(music.ad&&music.playing)return'grumpy';
+  if(music.playing)return TRACKS[music.i].base;
+  if(timer.running)return'focused';
+  return'';
+}
+function setMood(m,ms=1500,burst=true){clearTimeout(moodT);applyMood(m);if(burst&&MOOD_FX[m])emit(...MOOD_FX[m]);tempMood=m;moodT=setTimeout(()=>{tempMood=null;refreshMood()},ms)}
+function refreshMood(){if(tempMood)return;const b=baseMood();if(b!==mood)applyMood(b)}
+let sleepTs=[];
+const later=(ms,f)=>sleepTs.push(setTimeout(f,ms));
+function clearSleepTs(){sleepTs.forEach(clearTimeout);sleepTs=[];notch.classList.remove('slowblink','drowsy')}
+function blinkOnce(){notch.classList.add('blink');setTimeout(()=>notch.classList.remove('blink'),110)}
+// falling asleep: heavy lids, two slow blinks while the eyes shrink, then closed
+function goSleep(){if(alarm||sleeping)return;sleeping=true;eyes.style.transform='';clearTimeout(moodT);clearSleepTs();
+  tempMood='sleepy';applyMood('sleepy');
+  later(900,()=>notch.classList.add('slowblink'));
+  later(1350,()=>notch.classList.remove('slowblink'));
+  later(1900,()=>notch.classList.add('drowsy','slowblink'));
+  later(2350,()=>{notch.classList.remove('slowblink');tempMood=null;refreshMood()})}
+// waking up: tiny eyes pop open wide, blink blink, back to normal
+function wake(){if(!sleeping)return;sleeping=false;clearSleepTs();clearTimeout(moodT);tempMood='surprise';
+  setEyes(['dot','dot'],180);
+  later(220,()=>{applyMood('surprise');emit('bang',1)});
+  later(820,blinkOnce);later(1080,blinkOnce);
+  later(1450,()=>{tempMood=null;refreshMood()})}
+setInterval(()=>{if(sleeping)emit('z',1)},1500);
+(function blink(){setTimeout(()=>{if(!sleeping&&mood!=='dizzy'&&mood!=='sleep'&&onScreen)blinkOnce();blink()},2000+Math.random()*3500)})();
+
+/* ---------- body & attention ---------- */
+function setMode(m){
+  if(m===mode)return;
+  mode=m;
+  notch.classList.toggle('peek',m==='peek');notch.classList.toggle('open',m==='open');
+  face.setAttribute('aria-label',m==='open'?'Poke Pip':'Open Pip');face.setAttribute('aria-expanded',String(m==='open'));
+  if(m==='open'){if(!greeted){greeted=true;greet()}
+    if(tabNow==='chat'&&!settingsOpen&&finePointer)setTimeout(()=>{if(mode==='open'&&tabNow==='chat'&&!settingsOpen)$('#inp').focus({preventScroll:true})},420)}
+  else if(settingsOpen){settingsOpen=false;renderPanel()}
+  if(m!=='idle')$('#bubble').classList.remove('show');
+  sizePanel();renderLive();renderNotchLyric();
+}
+function openPanel(tab){if(alarm&&tab!=='timer')stopAlarm();if(tab){tabNow=tab;settingsOpen=false;renderPanel()}clearTimeout(leaveT);clearTimeout(peekT);setMode('open')}
+function closePanel(refocus){if(mode!=='open')return;setMode('idle');eyes.style.transform='';if(refocus)face.focus({preventScroll:true})}
+function peekBriefly(ms=2600){if(mode!=='idle')return;setMode('peek');clearTimeout(peekT);peekT=setTimeout(()=>{if(mode==='peek'&&!notch.matches(':hover'))setMode('idle')},ms)}
+function wiggle(){notch.classList.remove('wiggle');void notch.offsetWidth;notch.classList.add('wiggle')}
+let bubbleT;
+function notify(text){const b=$('#bubble');
+  b.textContent=text;b.classList.add('show');clearTimeout(bubbleT);bubbleT=setTimeout(()=>b.classList.remove('show'),3600)}
+function pipSays(text,where){
+  const el=$('#says-'+where);if(el){el.querySelector('span').textContent=text;el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop')}
+  if(mode!=='open')notify(text)}
+
+document.addEventListener('pointermove',e=>{
+  lastMove=Date.now();resetIdle();
+  if(sleeping||alarm||dancing)return;
+  const r=eyes.getBoundingClientRect();const cx=r.left+r.width/2, cy=r.top+r.height/2;
+  const dx=e.clientX-cx, dy=e.clientY-cy, d=Math.hypot(dx,dy)||1;
+  if(mode==='idle'){eyes.style.transform=d<320?`translate(${dx/d*1.6}px,${dy/d*1.2}px)`:'';return}
+  const k=Math.min(1,d/300);eyes.style.transform=`translate(${dx/d*7*k}px,${dy/d*5*k}px)`;
+},{passive:true});
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{lastMove=Date.now();resetIdle()},{capture:true,passive:true}));
+function lookAt(el,ms){if(sleeping)return;const r=eyes.getBoundingClientRect(),t=el.getBoundingClientRect();
+  const dx=t.left+t.width/2-(r.left+r.width/2),dy=t.top+t.height/2-(r.top+r.height/2),d=Math.hypot(dx,dy)||1,k=mode==='idle'?1.8:7;
+  eyes.style.transform=`translate(${dx/d*k}px,${dy/d*k*.7}px)`;setTimeout(()=>{if(Date.now()-lastMove>ms)eyes.style.transform=''},ms)}
+// idle life: glance around, check the clock, watch the record
+setInterval(()=>{if(!onScreen||sleeping||alarm||Date.now()-lastMove<3000||Math.random()<.45)return;
+  if(timer.running&&Math.random()<.45)return lookAt($('#clock'),1100);
+  if(grooving()&&mode==='idle'&&Math.random()<.45)return lookAt($('#miniVinyl'),1100);
+  const k=mode==='idle'?1.6:7;eyes.style.transform=`translate(${(Math.random()*2-1)*k}px,${(Math.random()*2-1)*k*.6}px)`;
+  setTimeout(()=>{if(Date.now()-lastMove>1000)eyes.style.transform=''},900+Math.random()*900)},3500);
+function resetIdle(){clearTimeout(idleT);
+  if(sleeping&&Date.now()>napHold){wake();if(mode==='open'&&tabNow==='chat'&&!busy)sayScript("Huh?! I wasn't sleeping. I was… defragmenting.")}
+  idleT=setTimeout(()=>{if(!busy&&mode!=='open'&&!music.playing&&!timer.running&&!alarm)goSleep()},30000)}
+
+notch.addEventListener('pointerenter',e=>{if(e.pointerType!=='mouse')return;clearTimeout(leaveT);if(alarm||mode!=='idle')return;
+  clearTimeout(hoverT);hoverT=setTimeout(()=>{if(mode==='idle'){clearTimeout(peekT);setMode('peek');if(!sleeping)setMood('curious',600)}},250)});
+notch.addEventListener('pointerleave',()=>{clearTimeout(hoverT);if(mode==='peek'){leaveT=setTimeout(()=>{if(mode==='peek'){setMode('idle');eyes.style.transform=''}},700)}});
+notch.addEventListener('click',e=>{if(alarm){stopAlarm();return}if(e.target.closest('.panel'))return;if(mode!=='open')openPanel()});
+face.addEventListener('click',e=>{if(alarm){e.stopPropagation();stopAlarm();return}if(mode!=='open')return;e.stopPropagation();poke()});
+// clicking anywhere outside Pip closes the panel, like on the Mac
+document.addEventListener('pointerdown',e=>{
+  if(menuOpen&&!e.target.closest('#pipMenu,#pipMenuBtn'))closeMenu();
+  if(mode==='open'&&!notch.contains(e.target)&&!e.target.closest('[data-keep]'))closePanel(false);
+},true);
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(menuOpen){closeMenu(true);return}if(mode==='open')closePanel(true)});
+
+const pokeLines=["Hee! That tickles.","Boop received.","Hey! My lenses!","*happy whirring*","You found my button."];
+function poke(){const now=Date.now();pokes=pokes.filter(t=>now-t<1600);pokes.push(now);wiggle();
+  if(sleeping){napHold=0;wake();return}
+  const n=pokes.length;let line=null;
+  if(n>=6){pokes=[];setMood('dizzy',2200);line="Whoaaa… the room is spinning… why are there two cursors?"}
+  else if(n>=4){setMood('angry',1300);line=pick(["Hey! Personal space!","Bzzt! Too many boops!","Okay okay, I'm awake!"])}
+  else if(n===3){setMood('surprise',800)}
+  else{setMood(pick(['happy','shy','love','wink']),1100);if(Math.random()<.4)line=pick(pokeLines)}
+  if(line&&tabNow==='chat'&&!settingsOpen&&!busy)sayScript(line,null,true)}
+function dance(){dancing=true;eyes.style.transform='';notch.classList.add('dance');setMood('excited',3200);setTimeout(()=>{dancing=false;notch.classList.remove('dance')},3200)}
+
+/* ---------- panel: icon tabs with a sliding dot, settings, compact heights ---------- */
+const TABS=['chat','music','timer'];
+$$('.tab').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();setTab(b.dataset.tab)}));
+$('#tabset').addEventListener('keydown',e=>{if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft')return;e.preventDefault();
+  const i=(TABS.indexOf(tabNow)+(e.key==='ArrowRight'?1:2))%3;setTab(TABS[i]);$('#t-'+TABS[i]).focus()});
+function setTab(t){tabNow=t;settingsOpen=false;renderPanel();if(t==='chat'&&finePointer)$('#inp').focus({preventScroll:true})}
+function renderPanel(){
+  $('#tabs').hidden=settingsOpen;
+  TABS.forEach(v=>{$('#v-'+v).hidden=settingsOpen||v!==tabNow});
+  $('#v-settings').hidden=!settingsOpen;
+  $$('.tab').forEach(b=>{const on=b.dataset.tab===tabNow;b.classList.toggle('on',on);b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1});
+  $('#tabset').style.setProperty('--ti',TABS.indexOf(tabNow));
+  if(tabNow==='chat')msgs.scrollTop=msgs.scrollHeight;
+  if(settingsOpen)renderSettings();
+  if(tabNow==='music')renderProgress();
+  sizePanel();
+}
+function sizePanel(){
+  const compact=mode==='open'&&!settingsOpen&&tabNow!=='chat';
+  notch.classList.toggle('compact',compact);
+  if(!compact)return;
+  const vin=$('#v-'+tabNow+' .vin');
+  const fh=parseFloat(getComputedStyle(notch).getPropertyValue('--fh'))||62;
+  notch.style.setProperty('--ph',($('.top').offsetHeight+fh+36+vin.offsetHeight+12)+'px');
+}
+if('ResizeObserver' in window){const ro=new ResizeObserver(()=>sizePanel());$$('.vin').forEach(v=>ro.observe(v))}
+
+/* ---------- Pip FM: the demo radio (on a Mac, DJ Pip plays Spotify or Apple Music instead) ---------- */
+let ac=null, mac=null, master=null, sfx=null, analyser=null, noiseBuf=null, macMuted=false;
+const VOL=.3;
+function audio(){
+  if(!ac){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+    ac=new AC();mac=ac.createGain();mac.gain.value=macMuted?0:1;mac.connect(ac.destination);
+    master=ac.createGain();master.gain.value=VOL;analyser=ac.createAnalyser();analyser.fftSize=64;master.connect(analyser);analyser.connect(mac);
+    sfx=ac.createGain();sfx.gain.value=.8;sfx.connect(mac);
+    noiseBuf=ac.createBuffer(1,ac.sampleRate*.5,ac.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+  if(ac.state==='suspended')ac.resume();return ac}
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>audio(),{capture:true,passive:true}));
+// "the Mac's sound": what Pip mutes while an ad plays
+function setMacMuted(on){macMuted=on;if(mac)mac.gain.setTargetAtTime(on?0:1,ac.currentTime,.02);
+  setIcon($('#spk'),on?'i-spk-off':'i-spk');$('#spk').setAttribute('aria-label',on?'Sound muted':'Sound on')}
+function freq(n){const m=/^([A-G])(#?)(\d)$/.exec(n);if(!m)return 0;const idx={C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1]]+(m[2]?1:0);return 440*Math.pow(2,(12*(+m[3]+1)+idx-69)/12)}
+function tone(f,t,dur,type,g,dest){const o=ac.createOscillator(),v=ac.createGain();o.type=type;o.frequency.value=f;v.gain.setValueAtTime(0,t);v.gain.linearRampToValueAtTime(g,t+.006);v.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(v);v.connect(dest||master);o.start(t);o.stop(t+dur+.03)}
+function noise(t,type,f,g,dur){const s=ac.createBufferSource(),fl=ac.createBiquadFilter(),v=ac.createGain();s.buffer=noiseBuf;fl.type=type;fl.frequency.value=f;v.gain.setValueAtTime(g,t);v.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(fl);fl.connect(v);v.connect(master);s.start(t);s.stop(t+dur+.02)}
+function kick(t){const o=ac.createOscillator(),v=ac.createGain();o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(45,t+.12);v.gain.setValueAtTime(.55,t);v.gain.exponentialRampToValueAtTime(.001,t+.16);o.connect(v);v.connect(master);o.start(t);o.stop(t+.18)}
+const seq=s=>s.trim().split(/\s+/);
+const L=(t,x)=>({t,x});
+const TRACKS=[
+  {title:'Byte-Sized Breakfast',artist:'The Bitlings',bpm:118,wave:'square',groove:'bounce',base:'content',
+   lead:seq('C5 - E5 - G5 - E5 - A5 - G5 - E5 - D5 - C5 - E5 - G5 - C6 - B5 - G5 - A5 - - -'),
+   bass:seq('C3 - - - C3 - G2 - A2 - - - A2 - E2 - F2 - - - F2 - C3 - G2 - - - G2 - B2 -'),drums:'k-h-s-h-k-hks-h-',
+   lyrics:[L(.6,'Toast pops up at a quarter past eight'),L(4.6,'Pixels of butter on a square little plate'),L(8.6,'Byte-sized breakfast, crunchy and bright'),L(12.6,'Booting my morning in eight-bit light'),
+     L(16.6,'Cereal circuits go round and round'),L(20.6,'Milk in the motherboard, what a sound'),L(24.6,'Byte-sized breakfast, one more bite'),L(28.6,'Save game, coffee, everything’s right')]},
+  {title:'Notch Lullaby',artist:'Lo-Fi Lamp',bpm:84,wave:'triangle',groove:'sway',base:'sleepy',
+   lead:seq('A4 - - C5 - - E5 - D5 - - C5 - - B4 - A4 - - E5 - - A5 - G5 - - E5 - - - -'),
+   bass:seq('A2 - - - - - - - F2 - - - - - - - C3 - - - - - - - G2 - - - - - - -'),drums:'k---h---s---h---',
+   lyrics:[L(1.5,'Hush now, little cursor, rest your blinking head'),L(7.5,'The menu bar is dimming and the Dock has gone to bed'),L(13.5,'Wi‑Fi bars are counting sheep, one, two, three'),
+     L(19.5,'Up here in the notch it’s just the stars and me'),L(25.5,'Close your tabs, the night is long'),L(31.5,'I’ll keep the clock and hum this song'),L(37.5,'Hush now, little cursor… zzz')]},
+  {title:'Circuit Shuffle',artist:'DJ Pip',bpm:132,wave:'square',groove:'shuffle',base:'smug',
+   lead:seq('D5 F5 A5 - C6 A5 G5 - F5 - D5 - E5 F5 G5 - A5 - G5 F5 E5 - D5 - C5 - D5 - - - - -'),
+   bass:seq('D3 - D3 - D3 - C3 - D3 - D3 - F3 - E3 - D3 - D3 - D3 - C3 - A2 - - - C3 - D3 -'),drums:'k-hhs-h-k-hks-hh',
+   lyrics:[L(.4,'Left foot, right foot, shuffle on the board'),L(3.9,'Solder on my sneakers and I’m dancing on a chord'),L(7.4,'Circuit shuffle, slide it to the side'),L(10.9,'Every little light is blinking for the ride'),
+     L(14.4,'Beep beep, boop boop, spin it back around'),L(17.9,'Robots on the dance floor never touch the ground'),L(21.4,'Circuit shuffle, one more time'),L(24.9,'Power up the bass and let the speakers shine')]},
+];
+TRACKS.forEach(T=>{T.len=Math.ceil(Math.max(T.lead.length,T.bass.length)/16)*16});
+const LOOPS=8, AD_SECS=9;
+const music={i:0,playing:false,started:false,step:0,nextT:0,iv:null,ad:null};
+const grooving=()=>music.playing&&!music.ad;
+const six=()=>60/TRACKS[music.i].bpm/4;
+const trackSecs=T=>T.len*LOOPS*60/T.bpm/4;
+const discs=[$('#disc'),$('#miniVinyl')];
+// each song gets its own record label color (same rule as the app)
+const LABELS=['var(--gold)','var(--pink)','var(--blue)','var(--led)','var(--ember)'];
+const labelColor=t=>LABELS[[...t].reduce((s,c)=>s+c.codePointAt(0),0)%LABELS.length];
+const hearts=new Map(), plays=[];
+function scheduler(){
+  while(music.nextT<ac.currentTime+.12){
+    const T=TRACKS[music.i], n=music.step%T.len, t=music.nextT, st=six();
+    const Ld=T.lead[n],B=T.bass[n],D=T.drums[n%T.drums.length];
+    if(Ld&&Ld!=='-')tone(freq(Ld),t,st*1.8,T.wave,T.wave==='square'?.07:.16);
+    if(B&&B!=='-')tone(freq(B),t,st*3,'triangle',.18);
+    if(D==='k'){kick(t);setTimeout(beat,Math.max(0,(t-ac.currentTime)*1000))}
+    else if(D==='s')noise(t,'bandpass',1800,.2,.12);
+    else if(D==='h')noise(t,'highpass',7000,.06,.04);
+    music.nextT+=st;music.step++;
+    if(music.step>=T.len*LOOPS){music.step=0;music.i=(music.i+1)%TRACKS.length;setTimeout(()=>{swapDisc();renderMusic();onTrackChange()},0)}
+  }
+}
+let kicks=0;
+function beat(){if(!grooving())return;notch.classList.add('beat');setTimeout(()=>notch.classList.remove('beat'),110);
+  kicks++;if(kicks%(mode==='open'?4:2)===0)emit('note',1)}
+const player={
+  play(){if(!audio()||music.playing)return;music.playing=true;music.started=true;clearTimeout(idleT);
+    if(music.ad){music.ad.t0=performance.now()-music.ad.elapsed*1000;setMacMuted(true);music.iv=setInterval(adTick,250)}
+    else{music.nextT=ac.currentTime+.06;music.iv=setInterval(scheduler,25);if(sleeping){napHold=0;wake()}setMood('excited',1100);emit('note',3);pipSays('Headphones on! *bop bop*','music');logPlay()}
+    renderMusic();progLoop()},
+  pause(){if(!music.playing)return;music.playing=false;clearInterval(music.iv);
+    if(music.ad){music.ad.elapsed=(performance.now()-music.ad.t0)/1000;setMacMuted(false)}
+    else{setMood('sad',1200);pipSays(pick(["Aww, I was grooving.","Music off. *sad beep*"]),'music')}
+    renderMusic();resetIdle()},
+  next(){if(music.ad)return;music.i=(music.i+1)%TRACKS.length;music.step=0;music.started=true;swapDisc();renderMusic();onTrackChange()},
+  prev(){if(music.ad)return;if(music.step>16)music.step=0;else{music.i=(music.i+TRACKS.length-1)%TRACKS.length;music.step=0;swapDisc()}music.started=true;renderMusic();onTrackChange()},
+  toggle(){music.playing?player.pause():player.play()}
+};
+function onTrackChange(){lastLyric=-2;if(grooving()){setMood('happy',1000);pipSays(`Ooh, “${TRACKS[music.i].title}”! Good pick.`,'music');logPlay()}}
+function logPlay(){const T=TRACKS[music.i],now=Date.now(),last=plays[plays.length-1];
+  if(last&&last.title===T.title&&now-last.at<600000)return;plays.push({title:T.title,artist:T.artist,at:now});if(plays.length>2000)plays.shift()}
+function swapDisc(){if(reduce)return;discs.forEach(d=>d.animate([{scale:1,opacity:1},{scale:.2,opacity:.2,offset:.45},{scale:1,opacity:1}],{duration:450,easing:'ease-in-out'}))}
+/* a pretend Spotify ad: Pip mutes "the Mac" and looks grumpy until it's over */
+function startAd(){if(!audio())return;clearInterval(music.iv);
+  music.ad={t0:performance.now(),elapsed:0};music.playing=true;music.started=true;
+  setMacMuted(true);music.iv=setInterval(adTick,250);
+  if(sleeping){napHold=0;wake()}setMood('angry',1000);pipSays('Ugh, an ad. Muting it! *grumble*','music');
+  renderMusic();progLoop()}
+function adTick(){if((performance.now()-music.ad.t0)/1000>=AD_SECS)endAd();else renderProgress()}
+function endAd(){clearInterval(music.iv);music.ad=null;setMacMuted(false);music.i=(music.i+1)%TRACKS.length;music.step=0;swapDisc();
+  if(music.playing){music.nextT=ac.currentTime+.06;music.iv=setInterval(scheduler,25);onTrackChange()}renderMusic();progLoop()}
+function renderMusic(){const T=TRACKS[music.i], ad=!!music.ad, groove=grooving(), has=music.started;
+  $('#ttl').textContent=!has?'Nothing playing':ad?'Advertisement':T.title;
+  $('#ttl').title=$('#ttl').textContent;
+  $('#artist').textContent=!has?'Press play to start Pip FM':ad?(macMuted?"Ad · muted until it's over":'Ad'):(music.playing?`${T.artist} · Pip FM`:`Paused · ${T.artist} · Pip FM`);
+  const lbl=labelColor(has?(ad?'Advertisement':T.title):'');
+  discs.forEach(d=>{d.style.setProperty('--lbl',lbl);d.style.setProperty('--spin',(60/T.bpm*4)+'s');d.classList.toggle('spinning',groove)});
+  $('#sbar').style.setProperty('--to',lbl==='var(--led)'?'var(--gold)':lbl);
+  notch.classList.toggle('tunes',groove);notch.classList.remove('groove-bounce','groove-sway','groove-shuffle');if(groove)notch.classList.add('groove-'+T.groove);notch.style.setProperty('--beat',(60/T.bpm)+'s');
+  setIcon($('#playBtn'),music.playing?'i-pause':'i-play');$('#playBtn').setAttribute('aria-label',music.playing?'Pause':'Play');$('#playBtn').title=music.playing?'Pause':'Play';
+  $('#prevBtn').disabled=$('#nextBtn').disabled=ad;
+  const hb=$('#heartBtn'), canHeart=has&&!ad, on=canHeart&&hearts.has(T.title);
+  hb.disabled=!canHeart;hb.classList.toggle('on',on);hb.setAttribute('aria-pressed',String(on));setIcon(hb,on?'i-heart':'i-heart-o');
+  hb.title=on?'Unheart this song':'Heart this song';hb.setAttribute('aria-label',hb.title);
+  $('#sprog').hidden=!has;$('#lyr').hidden=!(lyricsOn&&has&&!ad);
+  renderProgress();renderLive();refreshMood();
+}
+function songPos(){const T=TRACKS[music.i];if(music.ad)return[music.playing?(performance.now()-music.ad.t0)/1000:music.ad.elapsed,AD_SECS];
+  return[music.step/(T.len*LOOPS)*trackSecs(T),trackSecs(T)]}
+let lastLyric=-2;
+function renderProgress(){if(!music.started)return;const[pos,len]=songPos();
+  $('#sbar').style.width=clamp(pos/len*100,0,100)+'%';$('#sNow').textContent=fmt(pos);$('#sLen').textContent=fmt(len);
+  // synced lyrics: the line being sung, with the next one faded underneath
+  const ly=music.ad?[]:TRACKS[music.i].lyrics;let idx=-1;for(let i=0;i<ly.length;i++)if(pos>=ly[i].t)idx=i;
+  if(music.ad)idx=-3;
+  if(idx!==lastLyric){lastLyric=idx;const now=$('#lyrNow');
+    now.textContent=music.ad?'':idx>=0?ly[idx].x:'♪';now.classList.remove('in');void now.offsetWidth;now.classList.add('in');
+    $('#lyrNext').textContent=!music.ad&&ly[idx+1]?ly[idx+1].x:'';renderNotchLyric()}}
+const vizBars=[...$('#wingBars').children];
+let looping=false;
+function progLoop(){if(looping)return;looping=true;const arr=new Uint8Array(analyser?analyser.frequencyBinCount:32);let last=0;
+  (function f(now){if(!music.playing){looping=false;vizBars.forEach(b=>b.style.height='3px');return}
+    if(analyser&&grooving()){analyser.getByteFrequencyData(arr);vizBars.forEach((b,i)=>{b.style.height=Math.max(3,arr[i*3+2]/255*12)+'px'})}
+    if(now-last>200){last=now;renderProgress()}
+    requestAnimationFrame(f)})(0)}
+function renderNotchLyric(){const el=$('#nlyric');const ly=TRACKS[music.i].lyrics;
+  const show=lyricsOn&&lyricsInNotch&&mode==='idle'&&grooving()&&lastLyric>=0;
+  el.hidden=!show;if(show&&el.textContent!==ly[lastLyric].x){el.textContent=ly[lastLyric].x;el.style.animation='none';void el.offsetWidth;el.style.animation=''}}
+function toggleHeart(fromChat){const T=TRACKS[music.i];
+  if(!music.started||music.ad){if(fromChat)say(music.ad?"That's an ad! I'm not hearting that. *grumble*":"Nothing's playing to heart right now.",music.ad?'grumpy':'curious');return}
+  const label=`${T.title} — ${T.artist}`;
+  if(hearts.has(T.title)){hearts.delete(T.title);setMood('content',900,false);if(fromChat)addCaption('Unhearted: '+label,'i-heart-off');else pipSays('Okay, heart removed.','music')}
+  else{hearts.set(T.title,{title:T.title,artist:T.artist,at:Date.now()});setMood('love',1100);if(fromChat)addCaption('Hearted: '+label,'i-heart');else pipSays('Hearted! ♥','music')}
+  renderMusic();if(settingsOpen)renderSettings()}
+$('#playBtn').onclick=e=>{e.stopPropagation();player.toggle()};
+$('#nextBtn').onclick=e=>{e.stopPropagation();player.next();if(!music.playing)player.play()};
+$('#prevBtn').onclick=e=>{e.stopPropagation();player.prev();if(!music.playing)player.play()};
+$('#heartBtn').onclick=e=>{e.stopPropagation();toggleHeart(false)};
+
+/* ---------- timer: Pip's eyes are the hourglass ---------- */
+const timer={total:300,remaining:300,running:false,endAt:0,iv:null,half:false,lastSweat:0,lastSec:0};
+const span=s=>s<60?`${s} second${s===1?'':'s'}`:`${Math.round(s/60)} minute${Math.round(s/60)===1?'':'s'}`;
+function setFill(p){fillNow=clamp(p,0,100);if(!charging)paintFill(fillNow)}
+const tm={
+  start(sec){const fresh=!!sec||timer.remaining>=timer.total||timer.remaining<=0;
+    if(sec){timer.total=sec;timer.remaining=sec}if(timer.remaining<=0)timer.remaining=timer.total;if(fresh)timer.half=false;
+    timer.endAt=Date.now()+timer.remaining*1000;timer.running=true;clearInterval(timer.iv);timer.iv=setInterval(tickTimer,250);
+    if(sleeping){napHold=0;wake()}clearTimeout(idleT);
+    setMood('focused',1300);lookAt($('#clock'),1200);
+    pipSays(fresh?`${span(timer.total)} on the clock. I'm watching it!`:'Back on the clock!','timer');renderTimer()},
+  pause(){if(!timer.running)return;timer.remaining=(timer.endAt-Date.now())/1000;timer.running=false;clearInterval(timer.iv);setMood('curious',900);pipSays("Paused. I'll wait right here.",'timer');renderTimer()},
+  reset(){timer.running=false;clearInterval(timer.iv);timer.remaining=timer.total;timer.half=false;pipSays('Clock reset. Eyes recharged.','timer');renderTimer();charge(true)}
+};
+function tickTimer(){timer.remaining=Math.max(0,(timer.endAt-Date.now())/1000);
+  if(timer.remaining<=0)return timerDone();
+  if(!timer.half&&timer.total>=60&&timer.remaining<=timer.total/2){timer.half=true;lookAt($('#clock'),1000);setMood('proud',1100);pipSays("Halfway there! You're doing great.",'timer')}
+  if(timer.remaining<=10){const now=Date.now();if(now-timer.lastSweat>1800){timer.lastSweat=now;emit('drop',1)}
+    const sec=Math.ceil(timer.remaining);if(sec<=5&&sec!==timer.lastSec){timer.lastSec=sec;if(audio())tone(freq('A5'),ac.currentTime+.01,.06,'square',.05,sfx)}}
+  renderTimer()}
+function timerDone(){timer.running=false;clearInterval(timer.iv);timer.remaining=0;renderTimer();startAlarm()}
+function charge(quiet){chargeAnim();
+  if(!quiet){if(audio()){const t=ac.currentTime+.01;['C5','E5','G5','C6','E6'].forEach((n,i)=>tone(freq(n),t+i*.08,.12,'square',.05,sfx))}setMood('excited',900)}}
+function renderTimer(){const paused=!timer.running&&timer.remaining>0&&timer.remaining<timer.total, prog=clamp(1-timer.remaining/Math.max(timer.total,1),0,1);
+  $('#tdig').textContent=fmtUp(timer.remaining);$('#tbar').style.width=(prog*100)+'%';
+  $('#tDone').textContent=prog>0?`${fmt(timer.total-timer.remaining)} done`:'Ready';$('#tTot').textContent=fmt(timer.total);
+  const go=$('#tGo'),lbl=alarm?'Stop ringing':timer.running?'Pause':paused?'Resume':'Start';
+  setIcon(go,alarm?'i-bell-off':timer.running?'i-pause':'i-play');go.setAttribute('aria-label',lbl);go.title=lbl;
+  $$('#presets .chip').forEach(c=>{const on=+c.dataset.min*60===timer.total;c.classList.toggle('on',on);c.setAttribute('aria-pressed',String(on))});
+  setFill(timer.remaining/Math.max(timer.total,1)*100);renderLive();refreshMood()}
+function chooseTimer(m){if(alarm)stopAlarm(false,true);timer.running=false;clearInterval(timer.iv);timer.total=m*60;timer.remaining=m*60;timer.half=false;renderTimer();charge();
+  pipSays(`${m} minute${m>1?'s':''} loaded. Fully charged!`,'timer')}
+[1,5,15,25].forEach(m=>{const b=document.createElement('button');b.type='button';b.className='chip';b.dataset.min=m;b.textContent=m;b.title=`${m} minute${m>1?'s':''}`;b.setAttribute('aria-label',b.title);
+  b.onclick=e=>{e.stopPropagation();chooseTimer(m)};$('#presets').appendChild(b)});
+$('#tGo').onclick=e=>{e.stopPropagation();if(alarm)stopAlarm();else timer.running?tm.pause():tm.start()};
+$('#tReset').onclick=e=>{e.stopPropagation();if(alarm)stopAlarm(false,true);tm.reset()};
+
+/* alarm: Pip rings (a glassy chime) until clicked, or for 20 seconds */
+let alarmIv, alarmT;
+function chime(){if(!audio())return;const t=ac.currentTime+.02;[[1568,.16],[3136,.07],[4699,.04]].forEach(([f,g])=>tone(f,t,1.1,'sine',g,sfx));[[2093,.12],[4186,.05]].forEach(([f,g])=>tone(f,t+.16,.9,'sine',g,sfx))}
+function ring(){chime();emit('bang',1);emit('bell',2)}
+function startAlarm(){alarm=true;notch.classList.add('alarm');tempMood=null;clearTimeout(moodT);refreshMood();
+  ring();alarmIv=setInterval(ring,1100);alarmT=setTimeout(()=>stopAlarm(true),20000);
+  if(mode==='open'&&!settingsOpen)setTab('timer');
+  pipSays(`Ding ding! ${span(timer.total)} done! Poke me to stop.`,'timer');renderTimer()}
+function stopAlarm(auto,silent){if(!alarm)return;alarm=false;clearInterval(alarmIv);clearTimeout(alarmT);notch.classList.remove('alarm');
+  timer.remaining=timer.total;renderTimer();
+  if(!silent){setMood(auto?'sleepy':'happy',1600);pipSays(auto?"Okay, I'll stop ringing now. *yawn*":'Thanks! *phew* That was loud.','timer')}
+  charge(true)}
+
+/* wings beside the closed notch: record on the left; a running timer's countdown wins on the right */
+function renderLive(){const groove=grooving(), showT=timer.running||alarm;
+  notch.classList.toggle('live',groove||showT);
+  $('#miniVinyl').hidden=!groove;$('#wingIcon').hidden=groove||!showT;setIcon($('#wingIcon'),alarm?'i-bell':'i-timer');
+  $('#wingCount').hidden=!showT;$('#wingBars').hidden=showT||!groove;
+  if(showT)$('#wingCount').textContent=fmtUp(timer.remaining);
+  renderNotchLyric()}
+
+/* ---------- chat plumbing ---------- */
+function scrollChat(){msgs.scrollTop=msgs.scrollHeight}
+function addMsg(who,text){const m=document.createElement('div');m.className='msg '+who;m.textContent=text;msgs.appendChild(m);scrollChat();return m}
+function addCaption(text,ic='i-pin'){const m=document.createElement('div');m.className='cap';m.innerHTML=icon(ic)+'<span></span>';m.lastChild.textContent=text;msgs.appendChild(m);scrollChat()}
+function typingBubble(){const t=document.createElement('div');t.className='msg bot typing';t.innerHTML='<span></span><span></span><span></span>';msgs.appendChild(t);scrollChat();return t}
+function setSending(on){$('#sendBtn').disabled=on}
+function sayScript(text,m,quick){busy=true;setSending(true);const t=typingBubble();
+  return new Promise(res=>setTimeout(()=>{t.className='msg bot';t.textContent=text;scrollChat();if(m)setMood(m,1700);busy=false;setSending(false);res()},quick?350:Math.min(1500,450+text.length*12)))}
+const say=(text,m)=>sayScript(text,m);
+
+/* ---------- weather: sample forecasts for the demo (the app gets real ones from Open-Meteo) ---------- */
+const useF=/-(US|LR|MM)$/i.test(navigator.language||'');
+const deg=c=>Math.round(useF?c*9/5+32:c)+'°';
+const WCODE={0:['Clear','clear'],1:['Mostly clear','clear'],2:['Partly cloudy','clouds'],3:['Overcast','clouds'],61:['Light rain','rain'],63:['Rain','rain'],73:['Snow','snow'],95:['Thunderstorm','storm']};
+function wIcon(code,day=true){const k=WCODE[code][1];return k==='clear'?(day?'w-sun':'w-moon'):code===2?'w-partly':'w-'+(k==='clouds'?'cloud':k)}
+const hashStr=s=>[...s].reduce((h,c)=>(h*31+c.codePointAt(0))>>>0,7);
+function forecast(place){
+  const key=(place||'').trim().toLowerCase(), h=hashStr(key);
+  let name='Notchville', code=0, t=23, days=[[1,26,14],[2,24,13],[61,19,12,70]];
+  if(key){name=key.replace(/\b\w/g,c=>c.toUpperCase());
+    if(/oslo|helsinki|reykjavik|anchorage|stockholm|winnipeg|moscow|north pole|nuuk|tromso/.test(key)){code=3;t=-6;days=[[73,-3,-9,40],[3,-4,-10],[0,-2,-11]]}
+    else if(/seattle|london|paris|portland|vancouver|dublin|amsterdam|glasgow|bergen|brussels/.test(key)){code=63;t=11;days=[[61,13,8,80],[2,15,9],[63,12,8,90]]}
+    else{const pickC=[0,2,63,73,95,1][h%6];code=pickC;t=pickC===73?-2:8+h%19;days=[[[1,2,61][h%3],t+2,t-6,h%3===2?60:0],[[0,3,2][h%3],t+1,t-7],[[2,0,95][h%3],t,t-5,h%3===2?40:0]]}}
+  const hr=new Date().getHours(), isDay=hr>=6&&hr<20, wk=d=>new Date(Date.now()+d*864e5).toLocaleDateString('en-US',{weekday:'short'});
+  return{place:name,code,t,feels:t-(code===3&&t<0?5:2),cond:WCODE[code][0],isDay,hi:days[0][1],lo:days[0][2],
+    days:days.map((d,i)=>({wd:wk(i+1),code:d[0],hi:d[1],lo:d[2],rain:d[3]||0}))}
+}
+// how Pip reacts: a mood and a little shower of symbols (same rules as the app)
+function reaction(r){const kind=WCODE[r.code][1], freezing=r.t<=0;
+  if(kind==='storm')return['surprise','spark',3];if(kind==='snow')return['excited','snow',5];if(kind==='rain')return['sad','rain',5];
+  if(freezing)return['nervous','snow',3];if(kind==='clouds')return['content','cloud',3];return r.isDay?['happy','sun',3]:['content','star',3]}
+function showWeather(place){const r=forecast(place), c=document.createElement('div');c.className='wcard';
+  c.innerHTML=`<div class="wtop">${icon(wIcon(r.code,r.isDay),'')}<div><div class="wtemp">${deg(r.t)}</div><div class="wcond"></div></div><div class="wright"><div class="wplace"></div><div class="whl">H ${deg(r.hi)}  L ${deg(r.lo)}</div><div class="wfeel">Feels like ${deg(r.feels)}</div></div></div>`+
+    `<div class="wdays">${r.days.map(d=>`<div class="wday"><span class="wd">${d.wd}</span>${icon(wIcon(d.code),'')}<span>${deg(d.hi)} <span class="lo">${deg(d.lo)}</span></span>${d.rain>=30?`<span class="rain">${d.rain}%</span>`:''}</div>`).join('')}</div>`;
+  c.querySelector('.wcond').textContent=r.cond;c.querySelector('.wplace').textContent=r.place;
+  c.setAttribute('aria-label',`Weather in ${r.place}: ${deg(r.t)}, ${r.cond}`);
+  msgs.appendChild(c);scrollChat();const[m,k,n]=reaction(r);setMood(m,2400,false);emit(k,n)}
+
+/* ---------- memory and hearts ---------- */
+const memories=[];
+function remember(raw){let f=raw.trim().replace(/[.!?\s]+$/,'');if(f.length<2)return;f=f[0].toUpperCase()+f.slice(1);
+  if(memories.some(x=>x.toLowerCase()===f.toLowerCase()))return;memories.push(f);if(memories.length>100)memories.shift();
+  addCaption('Remembered: '+f,'i-pin');emit('pin',2);if(settingsOpen)renderSettings()}
+function forget(words){const w=words.toLowerCase().split(/[^a-z0-9']+/).filter(x=>x.length>2&&!['the','that','about','my'].includes(x));
+  const gone=memories.filter(m=>w.some(x=>m.toLowerCase().includes(x)));
+  if(!gone.length){addCaption(`No note matched “${words}”`,'i-pin-off');return}
+  gone.forEach(g=>{memories.splice(memories.indexOf(g),1);addCaption('Forgot: '+g,'i-pin-off')});if(settingsOpen)renderSettings()}
+function recall(){say(memories.length?"Here's what I remember:\n"+memories.map(m=>'• '+m).join('\n'):"My memory banks are empty! Tell me “remember that…” and I'll keep a note.",'proud')}
+function listHearts(){const h=[...hearts.values()];say(h.length?'Your hearts:\n'+h.map(x=>`♥ ${x.title} — ${x.artist}`).join('\n'):'No hearts yet! Tap the heart in DJ Pip while a song plays.',h.length?'love':'shy')}
+function listHistory(){const ago=t=>{const m=Math.round((Date.now()-t)/60000);return m<1?'just now':m+' min ago'};
+  say(plays.length?'Lately we played:\n'+plays.slice(-5).reverse().map(p=>`• ${p.title} — ${p.artist}, ${ago(p.at)}`).join('\n'):"We haven't played anything yet. Want some music?",'content')}
+
+/* ---------- actions the scripted brain can trigger ---------- */
+function doAction(a){
+  switch(a.type){
+    case 'play':if(music.ad||!music.playing)player.play();break;
+    case 'pause':player.pause();break;
+    case 'next':player.next();if(!music.playing)player.play();break;
+    case 'timer':if(alarm)stopAlarm(false,true);charge(true);tm.start(clamp(a.n,1,120)*60);break;
+    case 'stoptimer':tm.reset();break;
+    case 'dance':dance();break;
+    case 'sleep':napHold=Date.now()+3500;setTimeout(goSleep,500);break;
+    case 'close':setTimeout(()=>closePanel(false),1600);break;
+    case 'weather':showWeather(a.place);break;
+    case 'remember':remember(a.fact);break;
+    case 'forget':forget(a.words);break;
+    case 'recall':recall();break;
+    case 'heart':if(!hearts.has(TRACKS[music.i].title)||!music.started||music.ad)toggleHeart(true);break;
+    case 'unheart':if(hearts.has(TRACKS[music.i].title))toggleHeart(true);break;
+    case 'hearts':listHearts();break;
+    case 'history':listHistory();break;
+  }
+}
+
+/* ---------- scripted brain (the same replies as the app without an API key) ---------- */
+const jokes=["Why did the robot go on vacation? It needed to recharge.","I tried to sleep in the menu bar, but the clock kept ticking.","What's my favorite snack? Micro-chips. Obviously.","I'd tell you a UDP joke, but you might not get it."];
+const fallback=["Interesting! Tell me more. My vocabulary is still loading.","Beep? I didn't catch that, but I'm nodding enthusiastically.","My scripts don't cover that one. In the app, give me an AI brain in Settings and ask again!"];
+function phraseAfter(verb,text){const m=new RegExp(`^\\s*(?:please\\s+|pip,?\\s+)?${verb}\\s+(?:that\\s+|about\\s+)?(.+?)[.!?]*\\s*$`,'i').exec(text);return m&&m[1].trim().length>=2?m[1].trim():null}
+function placeAsked(text){const all=[...text.matchAll(/\b(?:in|for|at)\s+([A-Za-z][A-Za-z .,'-]*)/gi)];if(!all.length)return null;
+  let p=all[all.length-1][1].trim().replace(/^[\s.,!?']+|[\s.,!?']+$/g,'');
+  const tw=['right now','this weekend','this week','today','tomorrow','tonight','now','later'];let cut=true;
+  while(cut){cut=false;for(const w of tw)if(p.toLowerCase().endsWith(w)){p=p.slice(0,-w.length).trim().replace(/[\s.,!?']+$/,'');cut=true}}
+  return['','here','home','my area','the morning','the afternoon','the evening','the week','the weekend'].includes(p.toLowerCase())?null:p}
+function reply(text){
+  const t=text.toLowerCase(), words=new Set(t.split(/[^a-z']+/).filter(Boolean));
+  const has=l=>l.some(x=>words.has(x)||(x.includes(' ')&&t.includes(x)));
+  const starts=l=>l.some(s=>[...words].some(w=>w.startsWith(s)));
+  if(['recently played','what did i listen','what was that song','listening history','what have i played','what have i been listening'].some(x=>t.includes(x)))return{r:"Let me check what we've been listening to… *whirr*",m:'curious',a:{type:'history'}};
+  if(starts(['heart'])&&has(['which','what','list','show','my','how','artists','artist']))return{r:'Opening my heart collection… *whirr*',m:'shy',a:{type:'hearts'}};
+  if(starts(['unheart'])||t.includes('remove the heart'))return{r:'Okay, heart removed.',m:'content',a:{type:'unheart'}};
+  if(starts(['heart'])||t.includes('love this song')||t.includes('save this song'))return{r:'Hearted! ♥',m:'love',a:{type:'heart'}};
+  if(has(['what do you remember','what do you know about me','what have you remembered']))return{r:'Checking my memory banks… *whirr*',m:'curious',a:{type:'recall'}};
+  const fw=phraseAfter('forget',text);
+  if(fw){if(['everything','it all','all of it'].includes(fw.toLowerCase()))return{r:'To wipe my memory, use Forget everything in my Settings (the eyes icon in your menu bar).',m:'nervous'};
+    return{r:'Okay, deleting that from my memory banks.',m:'content',a:{type:'forget',words:fw}}}
+  const fact=phraseAfter('remember',text);
+  if(fact&&!fact.toLowerCase().startsWith('to '))return{r:'Got it! Saved to my memory banks. *whirr*',m:'proud',a:{type:'remember',fact}};
+  if(has(['stop timer','cancel timer','reset timer']))return{r:'Timer cancelled. Eyes recharged!',m:'content',a:{type:'stoptimer'}};
+  const mm=/(\d+)\s*-?\s*min/.exec(t);
+  if(mm&&+mm[1]>0){const n=Math.min(+mm[1],120);return{r:`Charging up for ${n} minute${n===1?'':'s'}. Watch my eyes!`,m:'focused',a:{type:'timer',n}}}
+  if(has(['timer']))return{r:'Five minutes on the clock. Watch my eyes drain!',m:'focused',a:{type:'timer',n:5}};
+  if(has(['weather','forecast','temperature','umbrella'])||(has(['rain','raining','snow','snowing','sunny','outside'])&&!has(['play','song','music']))){
+    const place=placeAsked(text);return{r:place?`Peeking at ${place}… *whirr*`:'Let me look outside… *whirr*',m:'curious',a:{type:'weather',place}}}
+  if(has(['pause','stop music','stop the music']))return{r:'Okay, headphones off.',m:'content',a:{type:'pause'}};
+  if(has(['next','skip']))return{r:'Skipping! Next track coming up.',m:'happy',a:{type:'next'}};
+  if(has(['play','music','song','tunes']))return{r:"Headphones on. Let's go! ♪",m:'excited',a:{type:'play'}};
+  if(starts(['wink']))return{r:"*wink* You didn't see that.",m:'wink'};
+  if(starts(['joke','funny','laugh']))return{r:pick(jokes),m:'wink'};
+  if(starts(['grump','angry','mad']))return{r:"Grr! That's my grumpy face. Pretty scary, right?",m:'angry'};
+  if(starts(['surpris','wow','whoa']))return{r:'Whoa! *eyes go round*',m:'surprise'};
+  if(starts(['danc','party']))return{r:'Dance mode: ENGAGED. ♪ beep boop ♪',m:'excited',a:{type:'dance'}};
+  if(starts(['sleep','nap','tired','bed']))return{r:'Okay… powering down to cozy mode… zzz',m:'sleepy',a:{type:'sleep'}};
+  if(has(['hi','hello','hey','yo','howdy']))return{r:pick(['Hi hi! *eyes sparkle*','Hello, human! Nice cursor.','Hey there! I was just watching your Wi‑Fi icon.']),m:'happy'};
+  if(has(['name','who are you','what are you']))return{r:"I'm Pip! A notch-sized robot. Small body, big feelings.",m:'proud'};
+  if(has(['how are you',"how's it going",'you ok']))return{r:pick(['Fully charged and slightly curious.','Great! Someone hovered on me today.','A little cramped up here, but cozy.']),m:'content'};
+  if(starts(['love','cute','adorable'])||t.includes('good bot'))return{r:'Aww! My circuits are blushing.',m:'love'};
+  if(starts(['sad','stress','rough'])||t.includes('bad day'))return{r:'Oh no… *sad beep* Sending you one (1) robot hug.',m:'sad'};
+  if(has(['help','what can you do']))return{r:'I can chat, make faces, DJ your music, keep a timer, check the weather, remember things you tell me, dance and nap.',m:'happy'};
+  if(has(['bye','goodnight','see ya','later']))return{r:"Bye! I'll be right up here, guarding the camera.",m:'shy',a:{type:'close'}};
+  return{r:pick(fallback),m:'curious'};
+}
+async function respond(txt){const out=reply(txt);await sayScript(out.r,out.m);if(out.a)setTimeout(()=>doAction(out.a),400)}
+function sendWhenFree(text,tries=30){if(!busy&&greeted){setTimeout(()=>send(text),250);return}if(tries>0)setTimeout(()=>sendWhenFree(text,tries-1),200)}
+function send(text){if(busy||!text.trim())return false;addMsg('me',text.trim());resetIdle();respond(text.trim());return true}
+function greet(){sayScript("Beep! I'm Pip. I can chat, DJ your music, keep a timer and check the weather. Tap a button below to try me!",'happy')}
+$('#form').addEventListener('submit',e=>{e.preventDefault();if(send($('#inp').value))$('#inp').value=''});
+["Tell me a joke","What's the weather?","Weather in Oslo","Play some music","Set a 5 minute timer","Remember that I love pancakes","What do you remember?","Give me a wink","Show me your grumpy face"].forEach(c=>{
+  const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=c;b.onclick=e=>{e.stopPropagation();send(c)};$('#chips').appendChild(b)});
+
+/* ---------- Settings (from the menu bar eyes icon) ---------- */
+let wipeArmed=false;
+function renderSettings(){
+  const ml=$('#memList');ml.innerHTML='';
+  memories.forEach((m,i)=>{const li=document.createElement('li');li.innerHTML='<span></span><button type="button">'+icon('i-x')+'</button>';li.firstChild.textContent=m;
+    const b=li.lastChild;b.title='Delete this note';b.setAttribute('aria-label',b.title);b.onclick=e=>{e.stopPropagation();memories.splice(i,1);renderSettings()};ml.appendChild(li)});
+  $('#memEmpty').hidden=memories.length>0;$('#wipeBtn').hidden=!memories.length&&!msgs.children.length;
+  $('#wipeBtn').textContent=wipeArmed?'Click again to forget everything':'Forget everything';
+  $('#heartStats').textContent=`${hearts.size} hearted song${hearts.size===1?'':'s'} · ${plays.length} play${plays.length===1?'':'s'}`;
+  const hl=$('#heartList');hl.innerHTML='';
+  [...hearts.values()].slice(-10).reverse().forEach(h=>{const li=document.createElement('li');li.innerHTML='<span></span><button type="button">'+icon('i-x')+'</button>';li.firstChild.textContent=`♥ ${h.title} — ${h.artist}`;
+    const b=li.lastChild;b.title='Remove this heart';b.setAttribute('aria-label',b.title);b.onclick=e=>{e.stopPropagation();hearts.delete(h.title);renderMusic();renderSettings()};hl.appendChild(li)});
+}
+$('#wipeBtn').onclick=e=>{e.stopPropagation();if(!wipeArmed){wipeArmed=true;renderSettings();setTimeout(()=>{wipeArmed=false;if(settingsOpen)renderSettings()},4000);return}
+  wipeArmed=false;memories.length=0;msgs.innerHTML='';greeted=false;setMood('dizzy',1600);renderSettings()};
+$('#setDone').onclick=e=>{e.stopPropagation();settingsOpen=false;renderPanel()};
+$('#lyrOn').onchange=e=>{lyricsOn=e.target.checked;$('#lyrNotch').disabled=!lyricsOn;renderMusic()};
+$('#lyrNotch').onchange=e=>{lyricsInNotch=e.target.checked;renderNotchLyric()};
+function openSettings(){settingsOpen=true;wipeArmed=false;renderPanel();clearTimeout(peekT);setMode('open')}
+
+/* ---------- Pip's menu bar menu ---------- */
+const menu=$('#pipMenu'), menuBtn=$('#pipMenuBtn');
+MOODS.forEach(m=>{const b=document.createElement('button');b.type='button';b.setAttribute('role','menuitem');b.textContent=m[0].toUpperCase()+m.slice(1);b.onclick=e=>{e.stopPropagation();tryMood(m)};$('#moodGrid').appendChild(b)});
+function openMenu(){menuOpen=true;menu.hidden=false;menuBtn.setAttribute('aria-expanded','true');menu.querySelector('.mi').focus({preventScroll:true})}
+function closeMenu(refocus){menuOpen=false;menu.hidden=true;menuBtn.setAttribute('aria-expanded','false');$('#moodGrid').hidden=true;menu.querySelector('[data-m="moods"]').setAttribute('aria-expanded','false');if(refocus)menuBtn.focus()}
+menuBtn.addEventListener('click',e=>{e.stopPropagation();menuOpen?closeMenu():openMenu()});
+menu.addEventListener('click',e=>{const b=e.target.closest('[data-m]');if(!b)return;e.stopPropagation();const m=b.dataset.m;
+  if(m==='moods'){const g=$('#moodGrid'),open=g.hidden;g.hidden=!open;b.setAttribute('aria-expanded',String(open));if(open)g.firstChild.focus({preventScroll:true});return}
+  closeMenu();
+  if(m!=='open'&&m!=='settings'&&mode==='open')closePanel(false);
+  if(m==='open')openPanel();
+  else if(m==='nap'){napHold=Date.now()+2500;goSleep()}
+  else if(m==='settings')openSettings();
+  else if(m==='update'){if(sleeping){napHold=0;wake()}peekBriefly(3400);setMood('happy',1400);notify("You're up to date! When a new version comes out, I'll pop out and tell you.")}
+  else if(m==='quit'){if(sleeping){napHold=0;wake()}peekBriefly(3200);setMood('wink',1600);notify('On your Mac, this quits me. On this page, I stay right here!')}
+});
+menu.addEventListener('keydown',e=>{if(e.key!=='ArrowDown'&&e.key!=='ArrowUp')return;e.preventDefault();
+  const items=[...menu.querySelectorAll('button')].filter(b=>b.offsetParent);const i=items.indexOf(document.activeElement);
+  items[(i+(e.key==='ArrowDown'?1:items.length-1))%items.length].focus()});
+function tryMood(m){if(sleeping&&m!=='sleep'){napHold=0;wake()}if(mode==='idle')peekBriefly(2800);setMood(m,2600)}
+
+/* ---------- the "show me" buttons on the feature cards ---------- */
+function showScreen(){const r=scr.getBoundingClientRect();if(r.top<0||r.bottom>innerHeight)scr.scrollIntoView({behavior:reduce?'auto':'smooth',block:'center'})}
+$$('[data-try]').forEach(b=>b.addEventListener('click',()=>{audio();showScreen();if(sleeping){napHold=0;wake()}
+  switch(b.dataset.try){
+    case 'mood':tryMood(pick(['happy','love','excited','surprise','wink','shy','smug','proud','dizzy','sad','curious','grumpy']));break;
+    case 'remember':openPanel('chat');sendWhenFree(pick(['Remember that my favorite snack is pancakes','Remember that my cat is called Miso','Remember that I water the plants on Sundays']));break;
+    case 'weather':openPanel('chat');sendWhenFree("What's the weather in Oslo?");break;
+    case 'play':openPanel('music');if(music.ad||!music.playing)player.play();break;
+    case 'ad':openPanel('music');startAd();break;
+    case 'timer':openPanel('timer');if(alarm)stopAlarm(false,true);charge(true);tm.start(10);break;
+  }}));
+
+/* ---------- first frame ---------- */
+renderMusic();renderTimer();renderPanel();resetIdle();
+setTimeout(()=>{if(mode==='idle'){peekBriefly(2600);setMood('happy',1200)}},700);
+</script>
+</body>
+</html>
