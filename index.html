@@ -535,7 +535,7 @@ footer a{color:var(--bot-fg)}
 
             <div class="view" id="v-settings" hidden>
               <div class="sview">
-                <section><h4>Pip's AI brain</h4><p>In the app, you can paste a Claude API key here and Pip really talks: it answers anything in character and picks its own moods. The key stays in your Mac's Keychain. This page never asks for it.</p></section>
+                <section><h4>Pip's AI brain</h4><p>In the app, you sign in here with your email (or paste your own Claude API key) and Pip really talks: it answers anything in character and picks its own moods. This page never asks for either.</p></section>
                 <section><h4>Pip's memory</h4><p id="memEmpty">No notes yet. Tell Pip “remember that…” in the chat.</p><ul class="notes" id="memList"></ul><button class="quiet warn" id="wipeBtn" type="button" hidden>Forget everything</button></section>
                 <section><h4>Hearts and listening</h4><p id="heartStats">0 hearted songs · 0 plays</p><ul class="notes" id="heartList"></ul></section>
                 <section><h4>Weather</h4><p>Home: Notchville (a pretend town for this demo). In the app, Pip uses your Mac's location, or a town you type here.</p><p class="fine">Weather data by Open-Meteo.com</p></section>
@@ -566,7 +566,7 @@ footer a{color:var(--bot-fg)}
       </article>
       <article>
         <h3>Chat and memory</h3>
-        <p>Ask Pip for a joke, music or a timer. Say “remember that…” and Pip keeps the note on your Mac, even after a restart. Pip answers with friendly scripted replies; for real conversations, add your own Claude API key in Settings.</p>
+        <p>Ask Pip for a joke, music or a timer. Say “remember that…” and Pip keeps the note on your Mac, even after a restart. Pip answers with friendly scripted replies; for real conversations, turn on Pip's AI in Settings.</p>
         <button class="try" type="button" data-try="remember" data-keep><svg class="ic"><use href="#i-play"/></svg>Teach Pip something</button>
       </article>
       <article>
@@ -604,7 +604,7 @@ footer a{color:var(--bot-fg)}
         <dt>Needs</dt><dd>A Mac with Apple silicon (M1 or newer) and macOS 14 Sonoma or later. <span>Macs with Intel chips aren't supported.</span></dd>
         <dt>Best on</dt><dd>A MacBook with a notch. <span>On other Macs, Pip sits at the top center of the screen.</span></dd>
         <dt>Music</dt><dd>Spotify or Apple Music <span>(for DJ Pip)</span></dd>
-        <dt>AI brain</dt><dd>Optional. <span>For now it uses your own Claude API key.</span></dd>
+        <dt>AI brain</dt><dd>Optional. <span>Sign in with your email (invite-only for now), or use your own Claude API key.</span></dd>
       </dl>
     </div>
     <div class="getr">
@@ -634,8 +634,8 @@ footer a{color:var(--bot-fg)}
   <section aria-labelledby="know-h" style="display:flex;flex-direction:column;gap:16px">
     <h2 id="know-h">Good to know</h2>
     <div class="know">
-      <div><b>Settings</b><p>Click the eyes icon in your menu bar, then Settings…, to add a Claude key, set your town, turn on lyrics, or see what Pip remembers.</p></div>
-      <div><b>Your stuff stays on your Mac</b><p>Pip keeps its notes, chat and hearts on your Mac. Weather comes from Open-Meteo and lyrics from LRCLIB. With a Claude key, your chats go to Claude.</p></div>
+      <div><b>Settings</b><p>Click the eyes icon in your menu bar, then Settings…, to turn on Pip's AI, set your town, turn on lyrics, or see what Pip remembers.</p></div>
+      <div><b>Your stuff stays on your Mac</b><p>Pip keeps its notes, chat and hearts on your Mac. Weather comes from Open-Meteo and lyrics from LRCLIB. When Pip's AI is on, your chats go to Claude, through Pip's helper (which keeps only message counts, never the chats) or straight from your Mac with your own key.</p></div>
       <div><b>Quitting</b><p>Click the eyes icon in the menu bar and choose Quit Pip.</p></div>
       <div><b>Removing Pip</b><p>Quit Pip, then drag it from Applications to the Trash.</p></div>
     </div>
